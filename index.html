@@ -44,10 +44,24 @@
     </div>
 
     <div id="telaListagem" class="hidden">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3><i class="fa-solid fa-tower-broadcast me-2 text-danger"></i>Central de Emergência</h3>
-            <div class="d-flex align-items-center gap-2">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h3 class="mb-0"><i class="fa-solid fa-tower-broadcast me-2 text-danger"></i>Central de Emergência</h3>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span id="statusSync" class="badge bg-secondary">a ligar...</span>
+                <div class="d-flex align-items-center gap-1">
+                    <small class="text-muted">De</small>
+                    <input type="date" id="filtroDataDe" class="form-control form-control-sm" style="width:145px" onchange="renderList()">
+                    <small class="text-muted">Até</small>
+                    <input type="date" id="filtroDataAte" class="form-control form-control-sm" style="width:145px" onchange="renderList()">
+                </div>
+                <select id="filtroEstado" class="form-select form-select-sm" style="width:150px" onchange="renderList()">
+                    <option value="">Todos os estados</option>
+                    <option value="alerta">Alerta</option>
+                    <option value="em curso">Em curso</option>
+                    <option value="encerrada">Encerrada</option>
+                    <option value="anulada">Anulada</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltros()" title="Limpar filtros"><i class="fa-solid fa-filter-circle-xmark"></i></button>
                 <button class="btn btn-outline-secondary" onclick="fazerLogout()" title="Terminar sessão"><i class="fa-solid fa-right-from-bracket"></i></button>
                 <button class="btn btn-danger btn-lg shadow" onclick="novaOcorrencia()"><i class="fa-solid fa-plus"></i> NOVA OCORRÊNCIA</button>
             </div>
@@ -58,6 +72,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Nº Interno</th>
+                            <th>Data</th>
                             <th>SADO</th>
                             <th>CODU</th>
                             <th>CB</th>
@@ -77,8 +92,16 @@
 
     <div id="telaFormulario" class="hidden">
         <div class="card shadow border-0">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="mb-0 fw-bold">FICHA DE OCORRÊNCIA SOCORRO</h5>
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <h5 class="mb-0 fw-bold">FICHA DE OCORRÊNCIA SOCORRO</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="mb-0 small">Data</label>
+                        <input type="date" id="dataOcorrencia" class="form-control form-control-sm" style="width:150px">
+                        <label class="mb-0 small">Hora</label>
+                        <input type="time" id="horaOcorrencia" class="form-control form-control-sm" style="width:110px">
+                    </div>
+                </div>
                 <button class="btn btn-sm btn-outline-light" onclick="cancelar()">FECHAR</button>
             </div>
             <div class="card-body">
@@ -687,6 +710,8 @@
 
         const oco = {
             id: document.getElementById('numInterno').value,
+            data: document.getElementById('dataOcorrencia').value,
+            hora: document.getElementById('horaOcorrencia').value,
             sado: document.getElementById('numSado').value,
             codu: document.getElementById('numCodu').value,
             estado: document.getElementById('estado').value,
@@ -730,9 +755,18 @@
     function renderList() {
         const corpo = document.getElementById('tabelaCorpo');
         corpo.innerHTML = '';
+        const dataDe = document.getElementById('filtroDataDe').value;
+        const dataAte = document.getElementById('filtroDataAte').value;
+        const estadoFiltro = document.getElementById('filtroEstado').value;
+
         db.forEach((o, i) => {
+            if (estadoFiltro && o.estado !== estadoFiltro) return;
+            if (dataDe && (!o.data || o.data < dataDe)) return;
+            if (dataAte && (!o.data || o.data > dataAte)) return;
+
             corpo.innerHTML += `<tr>
                 <td><b>${o.id}</b></td>
+                <td>${formatarDataHora(o.data, o.hora)}</td>
                 <td>${o.sado || '-'}</td>
                 <td>${o.codu || '-'}</td>
                 <td>${o.cb || '-'}</td>
@@ -746,10 +780,35 @@
         });
     }
 
+    function formatarDataHora(data, hora) {
+        if (!data) return '-';
+        const [ano, mes, dia] = data.split('-');
+        return `${dia}/${mes}/${ano}${hora ? ' ' + hora : ''}`;
+    }
+
+    function limparFiltros() {
+        document.getElementById('filtroDataDe').value = '';
+        document.getElementById('filtroDataAte').value = '';
+        document.getElementById('filtroEstado').value = '';
+        renderList();
+    }
+
+    function dataAtualInput() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function horaAtualInput() {
+        const d = new Date();
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
     function novaOcorrencia() {
         editIdx = -1; 
         document.getElementById('mainForm').reset();
         document.getElementById('numInterno').value = new Date().getFullYear() + "0" + (db.length + 1).toString().padStart(6, '0');
+        document.getElementById('dataOcorrencia').value = dataAtualInput();
+        document.getElementById('horaOcorrencia').value = horaAtualInput();
         document.getElementById('containerViaturas').innerHTML = '';
         document.getElementById('containerVitimas').innerHTML = '';
         document.getElementById('dropdownClassificacoes').classList.add('hidden');
@@ -761,6 +820,8 @@
         editIdx = idx; const o = db[idx]; 
         toggleTela('form');
         document.getElementById('numInterno').value = o.id;
+        document.getElementById('dataOcorrencia').value = o.data || '';
+        document.getElementById('horaOcorrencia').value = o.hora || '';
         document.getElementById('numSado').value = o.sado;
         document.getElementById('numCodu').value = o.codu;
         document.getElementById('estado').value = o.estado;
