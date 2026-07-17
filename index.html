@@ -898,7 +898,16 @@
             if (dataDe && (!o.data || o.data < dataDe)) return;
             if (dataAte && (!o.data || o.data > dataAte)) return;
 
-            corpo.innerHTML += `<tr>
+            const detalheViaturas = (o.viaturas && o.viaturas.length > 0)
+                ? o.viaturas.map(v => `
+                    <div class="d-inline-block me-4 mb-2 align-top">
+                        <b>${v.nome || '(sem nome)'}</b> ${v.cb ? `<span class="badge bg-secondary">${v.cb}</span>` : ''}
+                        <br><small class="text-muted">Saída: ${v.saida || '-'} · No Local: ${v.local || '-'} · Regresso: ${v.regr || '-'}${v.bomba ? ' · Bomba: ' + v.bomba : ''}</small>
+                        ${v.equipa && v.equipa.filter(Boolean).length ? `<br><small>Equipa: ${v.equipa.filter(Boolean).join(', ')}</small>` : ''}
+                    </div>`).join('')
+                : '<span class="text-muted">Sem viaturas mobilizadas.</span>';
+
+            corpo.innerHTML += `<tr style="cursor:pointer" onclick="toggleDetalhe(${i})">
                 <td><b>${o.id}</b></td>
                 <td>${formatarDataHora(o.data, o.hora)}</td>
                 <td>${o.sado || '-'}</td>
@@ -909,9 +918,17 @@
                 <td class="text-center"><span class="badge-count bg-primary">${o.numViaturas || 0}</span></td>
                 <td class="text-center"><span class="badge-count bg-dark">${o.numElementos || 0}</span></td>
                 <td><span class="badge ${classeEstado(o.estado)}">${o.estado.toUpperCase()}</span></td>
-                <td><button class="btn btn-sm btn-primary" onclick="editar(${i})">ABRIR</button></td>
+                <td><button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editar(${i})">ABRIR</button></td>
+            </tr>
+            <tr id="detalhe-${i}" class="hidden">
+                <td colspan="10" class="bg-light border-top-0 py-2">${detalheViaturas}</td>
             </tr>`;
         });
+    }
+
+    function toggleDetalhe(i) {
+        const linha = document.getElementById('detalhe-' + i);
+        if (linha) linha.classList.toggle('hidden');
     }
 
     function formatarDataHora(data, hora) {
