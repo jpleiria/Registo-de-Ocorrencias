@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central de Emergência - CBSLeiria</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --alerta: #ffc107; --em-curso: #007bff; --encerrada: #28a745; --anulada: #6c757d; }
+        body { background-color: #f4f6f9; font-size: 0.85rem; }
+        .state-alerta { background-color: var(--alerta); color: #000; }
+        .state-em-curso { background-color: var(--em-curso); color: #fff; }
+        .state-encerrada { background-color: var(--encerrada); color: #fff; }
+        .state-anulada { background-color: var(--anulada); color: #fff; }
+        #map { height: 280px; border-radius: 8px; border: 1px solid #ccc; z-index: 1; }
+        .section-title { border-left: 5px solid #d9534f; padding: 5px 10px; margin: 20px 0 10px; font-weight: bold; background: #eee; }
+        .viatura-box { border: 2px solid #0056b3; background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .equipa-container { background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #dee2e6; margin-top: 10px; }
+        .elemento-row { background: #fff; border: 1px solid #eee; padding: 5px; margin-bottom: 5px; border-radius: 4px; display: flex; align-items: center; gap: 5px; }
+        .hidden { display: none; }
+        .badge-count { background-color: #212529; color: white; border-radius: 10px; padding: 3px 10px; font-weight: bold; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-3">
+
+    <div id="telaLogin" class="d-flex align-items-center justify-content-center" style="min-height:80vh;">
+        <div class="card shadow p-4" style="width: 100%; max-width: 380px;">
+            <h4 class="text-center mb-3"><i class="fa-solid fa-tower-broadcast me-2 text-danger"></i>Central de Emergência</h4>
+            <div id="loginErro" class="alert alert-danger py-2 hidden"></div>
+            <div class="mb-2">
+                <label class="form-label">Email</label>
+                <input type="email" id="loginEmail" class="form-control" autocomplete="username">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" id="loginPassword" class="form-control" autocomplete="current-password">
+            </div>
+            <button class="btn btn-danger w-100" onclick="fazerLogin()"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR</button>
+        </div>
+    </div>
+
+    <div id="telaListagem" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3><i class="fa-solid fa-tower-broadcast me-2 text-danger"></i>Central de Emergência</h3>
+            <div class="d-flex align-items-center gap-2">
+                <span id="statusSync" class="badge bg-secondary">a ligar...</span>
+                <button class="btn btn-outline-secondary" onclick="fazerLogout()" title="Terminar sessão"><i class="fa-solid fa-right-from-bracket"></i></button>
+                <button class="btn btn-danger btn-lg shadow" onclick="novaOcorrencia()"><i class="fa-solid fa-plus"></i> NOVA OCORRÊNCIA</button>
+            </div>
+        </div>
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nº Interno</th>
+                            <th>SADO/CODU</th>
+                            <th>Classificação</th>
+                            <th>Morada Completa</th>
+                            <th class="text-center">Veículos</th>
+                            <th class="text-center">Operacionais</th>
+                            <th>Estado</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaCorpo"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="telaFormulario" class="hidden">
+        <div class="card shadow border-0">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0 fw-bold">FICHA DE OCORRÊNCIA SOCORRO</h5>
+                <button class="btn btn-sm btn-outline-light" onclick="cancelar()">FECHAR</button>
+            </div>
+            <div class="card-body">
+                <form id="mainForm">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Nº Interno</label>
+                            <input type="text" id="numInterno" class="form-control fw-bold bg-light" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Nº SADO</label>
+                            <input type="text" id="numSado" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Nº CODU</label>
+                            <input type="text" id="numCodu" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Estado</label>
+                            <select id="estado" class="form-select fw-bold" onchange="atualizarCorEstado(this)">
+                                <option value="alerta">ALERTA</option>
+                                <option value="em curso">EM CURSO</option>
+                                <option value="encerrada">ENCERRADA</option>
+                                <option value="anulada">ANULADA</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-primary">Classificação (Código/Descrição)</label>
+                            <input type="text" id="classificacao" class="form-control border-primary" list="listaClassificacoes" placeholder="Pesquise por código ou nome...">
+                            <datalist id="listaClassificacoes"></datalist>
+                        </div>
+                    </div>
+
+                    <div class="section-title">LOCALIZAÇÃO E MORADA</div>
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <div class="row g-2">
+                                <div class="col-9"><label>Rua / Avenida</label><input type="text" id="rua" class="form-control" onchange="atualizarMapa()"></div>
+                                <div class="col-3"><label>Nº</label><input type="text" id="porta" class="form-control"></div>
+                                <div class="col-8"><label>Localidade</label><input type="text" id="localidade" class="form-control" onchange="atualizarMapa()"></div>
+                                <div class="col-4"><label>Andar</label><input type="text" id="andar" class="form-control"></div>
+                                <div class="col-12 mt-2">
+                                    <label>Observações Adicionais</label>
+                                    <textarea id="obs" class="form-control" rows="5"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7"><div id="map"></div></div>
+                    </div>
+
+                    <div class="section-title d-flex justify-content-between align-items-center">
+                        MEIOS MOBILIZADOS (VIATURAS E EQUIPAS INDIVIDUAIS)
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addViatura()">+ ADICIONAR VIATURA</button>
+                    </div>
+                    <div id="containerViaturas" class="row"></div>
+
+                    <div class="section-title d-flex justify-content-between align-items-center">
+                        VÍTIMAS <button type="button" class="btn btn-sm btn-warning" onclick="addVitima()">+ ADICIONAR VÍTIMA</button>
+                    </div>
+                    <div id="containerVitimas" class="row g-2"></div>
+
+                    <div class="mt-5 p-4 border-top d-flex gap-2">
+                        <button type="button" class="btn btn-success btn-lg px-5 shadow" onclick="salvarOcorrencia()">GUARDAR FICHA</button>
+                        <button type="button" class="btn btn-secondary btn-lg" onclick="cancelar()">CANCELAR / VOLTAR</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+    // ====== CONFIGURAÇÃO DO FIREBASE ======
+    // COLA AQUI o objeto firebaseConfig que copiaste da consola Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyBQ-hDly0X2ax4ixWLmCVeDw3vXqdqezNk",
+        authDomain: "registo-ocorrencias-433ee.firebaseapp.com",
+        projectId: "registo-ocorrencias-433ee",
+        storageBucket: "registo-ocorrencias-433ee.firebasestorage.app",
+        messagingSenderId: "168656275524",
+        appId: "1:168656275524:web:fec02449537e4d544c1411"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const firestore = firebase.firestore();
+    const colecao = firestore.collection('ocorrencias');
+    let unsubscribeSnapshot = null;
+</script>
+
+<script>
+    // LISTA DE CLASSIFICAÇÕES COMPLETA (Baseada no seu ficheiro TXT)
+    const classificacoes = [
+        "1101 - Cheia", "1103 - Ventos fortes", "1105 - Sismo", "1107 - Nevões",
+        "2101 - Habitacional/Urbano", "2301 - Incêndio Veículo Rodoviário",
+        "2401 - Atropelamento rodoviário", "2403 - Colisão rodoviária", "2407 - Despiste",
+        "3101 - Povoamento Florestal", "3103 - Mato", "4103 - Doença", "4105 - Traumatismo/Queda",
+        "4317 - Abertura de porta com socorro", "9113 - Operações Nacionais de Socorro"
+    ];
+
+    let db = [];
+    let map, marker, editIdx = -1;
+
+    window.onload = () => {
+        const list = document.getElementById('listaClassificacoes');
+        classificacoes.forEach(c => list.innerHTML += `<option value="${c}">`);
+        initMap();
+    };
+
+    // ====== AUTENTICAÇÃO ======
+    function fazerLogin() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const erroBox = document.getElementById('loginErro');
+        erroBox.classList.add('hidden');
+        auth.signInWithEmailAndPassword(email, password).catch(err => {
+            erroBox.textContent = "Falha no login: " + traduzErro(err.code);
+            erroBox.classList.remove('hidden');
+        });
+    }
+
+    function fazerLogout() {
+        auth.signOut();
+    }
+
+    function traduzErro(code) {
+        const mapa = {
+            'auth/invalid-email': 'Email inválido.',
+            'auth/user-disabled': 'Utilizador desativado.',
+            'auth/user-not-found': 'Utilizador não encontrado.',
+            'auth/wrong-password': 'Password incorreta.',
+            'auth/invalid-credential': 'Email ou password incorretos.'
+        };
+        return mapa[code] || code;
+    }
+
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('telaLogin').classList.add('hidden');
+            document.getElementById('telaListagem').classList.remove('hidden');
+            ligarSincronizacao();
+        } else {
+            if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+            db = [];
+            document.getElementById('telaListagem').classList.add('hidden');
+            document.getElementById('telaFormulario').classList.add('hidden');
+            document.getElementById('telaLogin').classList.remove('hidden');
+        }
+    });
+
+    // ====== SINCRONIZAÇÃO EM TEMPO REAL COM O FIRESTORE ======
+    function ligarSincronizacao() {
+        const statusEl = document.getElementById('statusSync');
+        unsubscribeSnapshot = colecao.orderBy('criadoEm', 'asc').onSnapshot(snapshot => {
+            db = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+            renderList();
+            statusEl.textContent = 'sincronizado';
+            statusEl.className = 'badge bg-success';
+        }, err => {
+            console.error(err);
+            statusEl.textContent = 'erro de sincronização';
+            statusEl.className = 'badge bg-danger';
+        });
+    }
+
+    function initMap() {
+        map = L.map('map').setView([39.7436, -8.8071], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([39.7436, -8.8071]).addTo(map);
+    }
+
+    async function atualizarMapa() {
+        const rua = document.getElementById('rua').value;
+        const loc = document.getElementById('localidade').value;
+        if(rua.length < 3) return;
+        const query = `${rua}, ${loc}, Portugal`;
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if(data.length > 0) {
+                map.setView([data[0].lat, data[0].lon], 16);
+                marker.setLatLng([data[0].lat, data[0].lon]);
+            }
+        } catch (e) {}
+    }
+
+    // GESTÃO DE VIATURAS COM SUBMENU DE ELEMENTOS
+    function addViatura(dados = null) {
+        const vId = "v_" + Date.now() + Math.floor(Math.random() * 1000);
+        const html = `
+            <div class="col-12 viatura-box" id="${vId}">
+                <div class="row g-2">
+                    <div class="col-md-3 border-end">
+                        <label class="fw-bold text-primary">Identificação da Viatura</label>
+                        <input type="text" class="form-control v-nome mb-2 fw-bold" placeholder="Ex: ABSC 01" value="${dados?dados.nome:''}">
+                        
+                        <div class="equipa-container">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="fw-bold">EQUIPA (ELEMENTOS)</small>
+                                <button type="button" class="btn btn-xs btn-primary py-0" onclick="addEquipa('${vId}')" style="font-size:0.7rem;">+ Add</button>
+                            </div>
+                            <div id="lista_equipa_${vId}"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="row g-1">
+                            <div class="col-2"><small>Saída</small><input type="time" class="form-control form-control-sm v-saida" value="${dados?dados.saida:''}"></div>
+                            <div class="col-2"><small>No Local</small><input type="time" class="form-control form-control-sm v-local" value="${dados?dados.local:''}"></div>
+                            <div class="col-2"><small>S. Local</small><input type="time" class="form-control form-control-sm v-sloc" value="${dados?dados.sloc:''}"></div>
+                            <div class="col-2"><small>Regresso</small><input type="time" class="form-control form-control-sm v-regr" value="${dados?dados.regr:''}"></div>
+                            <div class="col-2"><small>KM Ocorr.</small><input type="number" class="form-control form-control-sm v-kmoc" value="${dados?dados.kmoc:''}"></div>
+                            <div class="col-2"><small>KM Totais</small><input type="number" class="form-control form-control-sm v-kmtot" value="${dados?dados.kmtot:''}"></div>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button type="button" class="btn btn-sm btn-link text-danger fw-bold" onclick="remover('${vId}')"><i class="fa-solid fa-trash"></i> APAGAR VIATURA</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        document.getElementById('containerViaturas').insertAdjacentHTML('beforeend', html);
+        
+        // Se houver dados (edição), carrega os elementos daquela viatura
+        if(dados && dados.equipa) {
+            dados.equipa.forEach(nomeElemento => addEquipa(vId, nomeElemento));
+        }
+    }
+
+    function addEquipa(vId, nome = "") {
+        const html = `
+            <div class="elemento-row">
+                <input type="text" class="form-control form-control-sm e-nome" placeholder="Nome Operacional" value="${nome}">
+                <button type="button" class="btn btn-sm text-danger px-1" onclick="this.parentElement.remove()">×</button>
+            </div>`;
+        document.getElementById(`lista_equipa_${vId}`).insertAdjacentHTML('beforeend', html);
+    }
+
+    // VÍTIMAS
+    function addVitima(dados = null) {
+        const id = "vit_" + Date.now();
+        const html = `
+            <div class="col-md-4" id="${id}">
+                <div class="card p-2 border-warning bg-light">
+                    <input type="text" class="form-control form-control-sm vt-nome mb-1" placeholder="Nome da Vítima" value="${dados?dados.nome:''}">
+                    <div class="row g-1">
+                        <div class="col-4"><select class="form-select form-select-sm vt-gen"><option value="M" ${dados?.gen=='M'?'selected':''}>M</option><option value="F" ${dados?.gen=='F'?'selected':''}>F</option></select></div>
+                        <div class="col-4"><input type="number" class="form-control form-control-sm vt-idade" placeholder="Idade" value="${dados?dados.idade:''}"></div>
+                        <div class="col-4"><button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="remover('${id}')">X</button></div>
+                        <div class="col-12 mt-1">
+                            <select class="form-select form-select-sm vt-grav fw-bold">
+                                <option value="assistido" ${dados?.grav=='assistido'?'selected':''}>Assistido</option>
+                                <option value="leve" ${dados?.grav=='leve'?'selected':''}>Leve</option>
+                                <option value="grave" ${dados?.grav=='grave'?'selected':''}>Grave</option>
+                                <option value="morto" ${dados?.grav=='morto'?'selected':''}>Morto</option>
+                                <option value="recusa" ${dados?.grav=='recusa'?'selected':''}>Recusa</option>
+                                <option value="abandonou" ${dados?.grav=='abandonou'?'selected':''}>Abandonou</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        document.getElementById('containerVitimas').insertAdjacentHTML('beforeend', html);
+    }
+
+    // CÁLCULOS E SALVAMENTO
+    function salvarOcorrencia() {
+        const viaturasArr = Array.from(document.querySelectorAll('.viatura-box')).map(box => {
+            const elementos = Array.from(box.querySelectorAll('.e-nome')).map(inp => inp.value).filter(v => v !== "");
+            return {
+                nome: box.querySelector('.v-nome').value,
+                saida: box.querySelector('.v-saida').value,
+                local: box.querySelector('.v-local').value,
+                sloc: box.querySelector('.v-sloc').value,
+                regr: box.querySelector('.v-regr').value,
+                kmoc: box.querySelector('.v-kmoc').value,
+                kmtot: box.querySelector('.v-kmtot').value,
+                equipa: elementos
+            };
+        });
+
+        const oco = {
+            id: document.getElementById('numInterno').value,
+            sado: document.getElementById('numSado').value,
+            codu: document.getElementById('numCodu').value,
+            estado: document.getElementById('estado').value,
+            classif: document.getElementById('classificacao').value,
+            rua: document.getElementById('rua').value,
+            localidade: document.getElementById('localidade').value,
+            porta: document.getElementById('porta').value,
+            andar: document.getElementById('andar').value,
+            obs: document.getElementById('obs').value,
+            viaturas: viaturasArr,
+            numViaturas: viaturasArr.length,
+            numElementos: viaturasArr.reduce((acc, v) => acc + v.equipa.length, 0),
+            vitimas: Array.from(document.querySelectorAll('[id^="vit_"]')).map(box => ({
+                nome: box.querySelector('.vt-nome').value,
+                gen: box.querySelector('.vt-gen').value,
+                idade: box.querySelector('.vt-idade').value,
+                grav: box.querySelector('.vt-grav').value
+            }))
+        };
+
+        const btn = document.querySelector('#mainForm .btn-success');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> A guardar...';
+
+        const gravar = editIdx === -1
+            ? colecao.add({ ...oco, criadoEm: firebase.firestore.FieldValue.serverTimestamp() })
+            : colecao.doc(db[editIdx]._id).set({ ...oco, criadoEm: db[editIdx].criadoEm || firebase.firestore.FieldValue.serverTimestamp() });
+
+        gravar.then(() => {
+            cancelar();
+        }).catch(err => {
+            alert('Erro ao guardar: ' + err.message);
+        }).finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'GUARDAR FICHA';
+        });
+    }
+
+    function renderList() {
+        const corpo = document.getElementById('tabelaCorpo');
+        corpo.innerHTML = '';
+        db.forEach((o, i) => {
+            corpo.innerHTML += `<tr>
+                <td><b>${o.id}</b></td>
+                <td>S:${o.sado || '-'} / C:${o.codu || '-'}</td>
+                <td>${o.classif}</td>
+                <td>${o.rua}, ${o.localidade}</td>
+                <td class="text-center"><span class="badge-count bg-primary">${o.numViaturas || 0}</span></td>
+                <td class="text-center"><span class="badge-count bg-dark">${o.numElementos || 0}</span></td>
+                <td><span class="badge state-${o.estado}">${o.estado.toUpperCase()}</span></td>
+                <td><button class="btn btn-sm btn-primary" onclick="editar(${i})">ABRIR</button></td>
+            </tr>`;
+        });
+    }
+
+    function novaOcorrencia() {
+        editIdx = -1; 
+        document.getElementById('mainForm').reset();
+        document.getElementById('numInterno').value = new Date().getFullYear() + "0" + (db.length + 1).toString().padStart(6, '0');
+        document.getElementById('containerViaturas').innerHTML = '';
+        document.getElementById('containerVitimas').innerHTML = '';
+        toggleTela('form'); 
+        atualizarCorEstado(document.getElementById('estado'));
+    }
+
+    function editar(idx) {
+        editIdx = idx; const o = db[idx]; 
+        toggleTela('form');
+        document.getElementById('numInterno').value = o.id;
+        document.getElementById('numSado').value = o.sado;
+        document.getElementById('numCodu').value = o.codu;
+        document.getElementById('estado').value = o.estado;
+        document.getElementById('classificacao').value = o.classif;
+        document.getElementById('rua').value = o.rua;
+        document.getElementById('localidade').value = o.localidade;
+        document.getElementById('porta').value = o.porta;
+        document.getElementById('andar').value = o.andar;
+        document.getElementById('obs').value = o.obs;
+        document.getElementById('containerViaturas').innerHTML = ''; 
+        o.viaturas.forEach(v => addViatura(v));
+        document.getElementById('containerVitimas').innerHTML = ''; 
+        o.vitimas.forEach(v => addVitima(v));
+        atualizarCorEstado(document.getElementById('estado')); 
+        atualizarMapa();
+    }
+
+    function remover(id) { document.getElementById(id).remove(); }
+    function toggleTela(tipo) {
+        document.getElementById('telaListagem').classList.toggle('hidden', tipo === 'form');
+        document.getElementById('telaFormulario').classList.toggle('hidden', tipo === 'list');
+        if(tipo==='form') setTimeout(() => map.invalidateSize(), 300);
+    }
+    function cancelar() { toggleTela('list'); }
+    function atualizarCorEstado(sel) { sel.className = 'form-select fw-bold state-' + sel.value; }
+</script>
+</body>
+</html>
