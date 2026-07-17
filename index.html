@@ -54,13 +54,29 @@
                     <small class="text-muted">Até</small>
                     <input type="date" id="filtroDataAte" class="form-control form-control-sm" style="width:145px" onchange="renderList()">
                 </div>
-                <select id="filtroEstado" class="form-select form-select-sm" style="width:150px" onchange="renderList()">
-                    <option value="">Todos os estados</option>
-                    <option value="alerta">Alerta</option>
-                    <option value="em curso">Em curso</option>
-                    <option value="encerrada">Encerrada</option>
-                    <option value="anulada">Anulada</option>
-                </select>
+                <div class="position-relative">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleFiltroEstados(event)">
+                        <i class="fa-solid fa-sliders"></i> Estados a mostrar
+                    </button>
+                    <div id="painelFiltroEstados" class="hidden" style="position:absolute; z-index:1000; top:110%; right:0; background:#fff; border:1px solid #dee2e6; border-radius:.375rem; padding:.6rem .9rem; box-shadow:0 .25rem .5rem rgba(0,0,0,.15); white-space:nowrap;">
+                        <div class="form-check">
+                            <input class="form-check-input filtro-estado-chk" type="checkbox" value="alerta" id="chkAlerta" checked onchange="renderList()">
+                            <label class="form-check-label" for="chkAlerta">Alerta</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input filtro-estado-chk" type="checkbox" value="em curso" id="chkEmCurso" checked onchange="renderList()">
+                            <label class="form-check-label" for="chkEmCurso">Em curso</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input filtro-estado-chk" type="checkbox" value="encerrada" id="chkEncerrada" onchange="renderList()">
+                            <label class="form-check-label" for="chkEncerrada">Encerrada</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input filtro-estado-chk" type="checkbox" value="anulada" id="chkAnulada" onchange="renderList()">
+                            <label class="form-check-label" for="chkAnulada">Anulada</label>
+                        </div>
+                    </div>
+                </div>
                 <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltros()" title="Limpar filtros"><i class="fa-solid fa-filter-circle-xmark"></i></button>
                 <button class="btn btn-outline-secondary" onclick="fazerLogout()" title="Terminar sessão"><i class="fa-solid fa-right-from-bracket"></i></button>
                 <button class="btn btn-danger btn-lg shadow" onclick="novaOcorrencia()"><i class="fa-solid fa-plus"></i> NOVA OCORRÊNCIA</button>
@@ -102,7 +118,10 @@
                         <input type="time" id="horaOcorrencia" class="form-control form-control-sm" style="width:110px">
                     </div>
                 </div>
-                <button class="btn btn-sm btn-outline-light" onclick="cancelar()">FECHAR</button>
+                <div class="d-flex align-items-center gap-2">
+                    <button id="btnApagar" class="btn btn-sm btn-outline-danger hidden" onclick="apagarOcorrencia()"><i class="fa-solid fa-trash"></i> APAGAR OCORRÊNCIA</button>
+                    <button class="btn btn-sm btn-outline-light" onclick="cancelar()">FECHAR</button>
+                </div>
             </div>
             <div class="card-body">
                 <form id="mainForm">
@@ -505,6 +524,10 @@
             if (e.target !== input && !dropdown.contains(e.target)) {
                 dropdown.classList.add('hidden');
             }
+            const painelEstados = document.getElementById('painelFiltroEstados');
+            if (painelEstados && !painelEstados.contains(e.target)) {
+                painelEstados.classList.add('hidden');
+            }
         });
     };
 
@@ -752,15 +775,34 @@
         });
     }
 
+    function apagarOcorrencia() {
+        if (editIdx === -1) return;
+        const o = db[editIdx];
+        if (!confirm(`Tens a certeza que queres apagar a ocorrência Nº ${o.id}? Esta ação não pode ser desfeita.`)) return;
+
+        const btn = document.getElementById('btnApagar');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> A apagar...';
+
+        colecao.doc(o._id).delete().then(() => {
+            cancelar();
+        }).catch(err => {
+            alert('Erro ao apagar: ' + err.message);
+        }).finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-trash"></i> APAGAR OCORRÊNCIA';
+        });
+    }
+
     function renderList() {
         const corpo = document.getElementById('tabelaCorpo');
         corpo.innerHTML = '';
         const dataDe = document.getElementById('filtroDataDe').value;
         const dataAte = document.getElementById('filtroDataAte').value;
-        const estadoFiltro = document.getElementById('filtroEstado').value;
+        const estadosVisiveis = Array.from(document.querySelectorAll('.filtro-estado-chk:checked')).map(c => c.value);
 
         db.forEach((o, i) => {
-            if (estadoFiltro && o.estado !== estadoFiltro) return;
+            if (!estadosVisiveis.includes(o.estado)) return;
             if (dataDe && (!o.data || o.data < dataDe)) return;
             if (dataAte && (!o.data || o.data > dataAte)) return;
 
@@ -789,8 +831,13 @@
     function limparFiltros() {
         document.getElementById('filtroDataDe').value = '';
         document.getElementById('filtroDataAte').value = '';
-        document.getElementById('filtroEstado').value = '';
+        document.querySelectorAll('.filtro-estado-chk').forEach(c => c.checked = true);
         renderList();
+    }
+
+    function toggleFiltroEstados(evt) {
+        evt.stopPropagation();
+        document.getElementById('painelFiltroEstados').classList.toggle('hidden');
     }
 
     function dataAtualInput() {
@@ -803,15 +850,28 @@
         return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
 
+    function proximoNumInterno() {
+        const prefixo = new Date().getFullYear() + "0";
+        let maxSeq = 0;
+        db.forEach(o => {
+            if (o.id && o.id.startsWith(prefixo)) {
+                const seq = parseInt(o.id.slice(prefixo.length), 10);
+                if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+            }
+        });
+        return prefixo + (maxSeq + 1).toString().padStart(6, '0');
+    }
+
     function novaOcorrencia() {
         editIdx = -1; 
         document.getElementById('mainForm').reset();
-        document.getElementById('numInterno').value = new Date().getFullYear() + "0" + (db.length + 1).toString().padStart(6, '0');
+        document.getElementById('numInterno').value = proximoNumInterno();
         document.getElementById('dataOcorrencia').value = dataAtualInput();
         document.getElementById('horaOcorrencia').value = horaAtualInput();
         document.getElementById('containerViaturas').innerHTML = '';
         document.getElementById('containerVitimas').innerHTML = '';
         document.getElementById('dropdownClassificacoes').classList.add('hidden');
+        document.getElementById('btnApagar').classList.add('hidden');
         toggleTela('form'); 
         atualizarCorEstado(document.getElementById('estado'));
     }
@@ -819,6 +879,7 @@
     function editar(idx) {
         editIdx = idx; const o = db[idx]; 
         toggleTela('form');
+        document.getElementById('btnApagar').classList.remove('hidden');
         document.getElementById('numInterno').value = o.id;
         document.getElementById('dataOcorrencia').value = o.data || '';
         document.getElementById('horaOcorrencia').value = o.hora || '';
