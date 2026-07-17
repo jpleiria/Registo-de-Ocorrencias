@@ -867,9 +867,20 @@
         });
     }
 
+    // Código de confirmação necessário para apagar uma ocorrência. Altera aqui se quiseres outro.
+    const PIN_APAGAR = "1234";
+
     function apagarOcorrencia() {
         if (editIdx === -1) return;
         const o = db[editIdx];
+
+        const codigo = prompt(`Para apagar a ocorrência Nº ${o.id}, introduz o código de confirmação:`);
+        if (codigo === null) return; // cancelado
+        if (codigo !== PIN_APAGAR) {
+            alert('Código incorreto. A ocorrência não foi apagada.');
+            return;
+        }
+
         if (!confirm(`Tens a certeza que queres apagar a ocorrência Nº ${o.id}? Esta ação não pode ser desfeita.`)) return;
 
         const btn = document.getElementById('btnApagar');
