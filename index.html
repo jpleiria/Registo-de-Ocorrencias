@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --alerta: #ffc107; --em-curso: #007bff; --encerrada: #28a745; --anulada: #6c757d; }
+        :root { --alerta: #ffc107; --em-curso: #dc3545; --encerrada: #28a745; --anulada: #6c757d; }
         body { background-color: #f4f6f9; font-size: 0.85rem; }
         .state-alerta { background-color: var(--alerta); color: #000; }
         .state-em-curso { background-color: var(--em-curso); color: #fff; }
@@ -58,7 +58,9 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Nº Interno</th>
-                            <th>SADO/CODU</th>
+                            <th>SADO</th>
+                            <th>CODU</th>
+                            <th>CB</th>
                             <th>Classificação</th>
                             <th>Morada Completa</th>
                             <th class="text-center">Veículos</th>
@@ -86,11 +88,11 @@
                             <label class="form-label fw-bold">Nº Interno</label>
                             <input type="text" id="numInterno" class="form-control fw-bold bg-light" readonly>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">Nº SADO</label>
                             <input type="text" id="numSado" class="form-control">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">Nº CODU</label>
                             <input type="text" id="numCodu" class="form-control">
                         </div>
@@ -101,6 +103,17 @@
                                 <option value="em curso">EM CURSO</option>
                                 <option value="encerrada">ENCERRADA</option>
                                 <option value="anulada">ANULADA</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">CB</label>
+                            <select id="cb" class="form-select">
+                                <option value="">-</option>
+                                <option value="CMOS">CMOS</option>
+                                <option value="BSL">BSL</option>
+                                <option value="BVM">BVM</option>
+                                <option value="BVL">BVL</option>
+                                <option value="BVO">BVO</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -137,6 +150,13 @@
                         VÍTIMAS <button type="button" class="btn btn-sm btn-warning" onclick="addVitima()">+ ADICIONAR VÍTIMA</button>
                     </div>
                     <div id="containerVitimas" class="row g-2"></div>
+
+                    <div class="section-title">NOTAS FINAIS</div>
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <textarea id="notasFinais" class="form-control" rows="4" placeholder="Notas finais sobre a ocorrência (resolução, observações da equipa, etc.)"></textarea>
+                        </div>
+                    </div>
 
                     <div class="mt-5 p-4 border-top d-flex gap-2">
                         <button type="button" class="btn btn-success btn-lg px-5 shadow" onclick="salvarOcorrencia()">GUARDAR FICHA</button>
@@ -295,6 +315,7 @@
                             <div class="col-2"><small>Regresso</small><input type="time" class="form-control form-control-sm v-regr" value="${dados?dados.regr:''}"></div>
                             <div class="col-2"><small>KM Ocorr.</small><input type="number" class="form-control form-control-sm v-kmoc" value="${dados?dados.kmoc:''}"></div>
                             <div class="col-2"><small>KM Totais</small><input type="number" class="form-control form-control-sm v-kmtot" value="${dados?dados.kmtot:''}"></div>
+                            <div class="col-2"><small>Tempo de Bomba (h:min)</small><input type="time" class="form-control form-control-sm v-bomba" value="${dados?dados.bomba:''}"></div>
                         </div>
                         <div class="text-end mt-3">
                             <button type="button" class="btn btn-sm btn-link text-danger fw-bold" onclick="remover('${vId}')"><i class="fa-solid fa-trash"></i> APAGAR VIATURA</button>
@@ -358,6 +379,7 @@
                 regr: box.querySelector('.v-regr').value,
                 kmoc: box.querySelector('.v-kmoc').value,
                 kmtot: box.querySelector('.v-kmtot').value,
+                bomba: box.querySelector('.v-bomba').value,
                 equipa: elementos
             };
         });
@@ -367,12 +389,14 @@
             sado: document.getElementById('numSado').value,
             codu: document.getElementById('numCodu').value,
             estado: document.getElementById('estado').value,
+            cb: document.getElementById('cb').value,
             classif: document.getElementById('classificacao').value,
             rua: document.getElementById('rua').value,
             localidade: document.getElementById('localidade').value,
             porta: document.getElementById('porta').value,
             andar: document.getElementById('andar').value,
             obs: document.getElementById('obs').value,
+            notasFinais: document.getElementById('notasFinais').value,
             viaturas: viaturasArr,
             numViaturas: viaturasArr.length,
             numElementos: viaturasArr.reduce((acc, v) => acc + v.equipa.length, 0),
@@ -408,12 +432,14 @@
         db.forEach((o, i) => {
             corpo.innerHTML += `<tr>
                 <td><b>${o.id}</b></td>
-                <td>S:${o.sado || '-'} / C:${o.codu || '-'}</td>
+                <td>${o.sado || '-'}</td>
+                <td>${o.codu || '-'}</td>
+                <td>${o.cb || '-'}</td>
                 <td>${o.classif}</td>
                 <td>${o.rua}, ${o.localidade}</td>
                 <td class="text-center"><span class="badge-count bg-primary">${o.numViaturas || 0}</span></td>
                 <td class="text-center"><span class="badge-count bg-dark">${o.numElementos || 0}</span></td>
-                <td><span class="badge state-${o.estado}">${o.estado.toUpperCase()}</span></td>
+                <td><span class="badge ${classeEstado(o.estado)}">${o.estado.toUpperCase()}</span></td>
                 <td><button class="btn btn-sm btn-primary" onclick="editar(${i})">ABRIR</button></td>
             </tr>`;
         });
@@ -436,12 +462,14 @@
         document.getElementById('numSado').value = o.sado;
         document.getElementById('numCodu').value = o.codu;
         document.getElementById('estado').value = o.estado;
+        document.getElementById('cb').value = o.cb || '';
         document.getElementById('classificacao').value = o.classif;
         document.getElementById('rua').value = o.rua;
         document.getElementById('localidade').value = o.localidade;
         document.getElementById('porta').value = o.porta;
         document.getElementById('andar').value = o.andar;
         document.getElementById('obs').value = o.obs;
+        document.getElementById('notasFinais').value = o.notasFinais || '';
         document.getElementById('containerViaturas').innerHTML = ''; 
         o.viaturas.forEach(v => addViatura(v));
         document.getElementById('containerVitimas').innerHTML = ''; 
@@ -457,7 +485,8 @@
         if(tipo==='form') setTimeout(() => map.invalidateSize(), 300);
     }
     function cancelar() { toggleTela('list'); }
-    function atualizarCorEstado(sel) { sel.className = 'form-select fw-bold state-' + sel.value; }
+    function atualizarCorEstado(sel) { sel.className = 'form-select fw-bold ' + classeEstado(sel.value); }
+    function classeEstado(estado) { return 'state-' + estado.replace(/\s+/g, '-'); }
 </script>
 </body>
 </html>
