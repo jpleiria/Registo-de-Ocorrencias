@@ -902,7 +902,7 @@
                 ? o.viaturas.map(v => `
                     <div class="d-inline-block me-4 mb-2 align-top">
                         <b>${v.nome || '(sem nome)'}</b> ${v.cb ? `<span class="badge bg-secondary">${v.cb}</span>` : ''}
-                        <br><small class="text-muted">Saída: ${v.saida || '-'} · No Local: ${v.local || '-'} · Regresso: ${v.regr || '-'}${v.bomba ? ' · Bomba: ' + v.bomba : ''}</small>
+                        <br><small class="text-muted">Saída: ${v.saida || '-'} · No Local: ${v.local || '-'} · Saída do Local: ${v.sloc || '-'} · Regresso: ${v.regr || '-'}${v.bomba ? ' · Bomba: ' + v.bomba : ''}</small>
                         ${v.equipa && v.equipa.filter(Boolean).length ? `<br><small>Equipa: ${v.equipa.filter(Boolean).join(', ')}</small>` : ''}
                     </div>`).join('')
                 : '<span class="text-muted">Sem viaturas mobilizadas.</span>';
