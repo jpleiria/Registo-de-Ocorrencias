@@ -580,7 +580,7 @@
     // ====== SINCRONIZAÇÃO EM TEMPO REAL COM O FIRESTORE ======
     function ligarSincronizacao() {
         const statusEl = document.getElementById('statusSync');
-        unsubscribeSnapshot = colecao.orderBy('criadoEm', 'asc').onSnapshot(snapshot => {
+        unsubscribeSnapshot = colecao.orderBy('criadoEm', 'desc').onSnapshot(snapshot => {
             db = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
             renderList();
             statusEl.textContent = 'sincronizado';
