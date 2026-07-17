@@ -727,6 +727,14 @@
                     <div class="col-md-3 border-end">
                         <label class="fw-bold text-primary">Identificação da Viatura</label>
                         <input type="text" class="form-control v-nome mb-2 fw-bold" placeholder="Ex: ABSC 01" value="${dados?dados.nome:''}">
+                        <label class="fw-bold text-primary">CB</label>
+                        <select class="form-select v-cb mb-2">
+                            <option value="">-</option>
+                            <option value="BSL" ${dados&&dados.cb==='BSL'?'selected':''}>BSL</option>
+                            <option value="BVM" ${dados&&dados.cb==='BVM'?'selected':''}>BVM</option>
+                            <option value="BVL" ${dados&&dados.cb==='BVL'?'selected':''}>BVL</option>
+                            <option value="BVO" ${dados&&dados.cb==='BVO'?'selected':''}>BVO</option>
+                        </select>
                         
                         <div class="equipa-container">
                             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -802,6 +810,7 @@
             const elementos = Array.from(box.querySelectorAll('.e-nome')).map(inp => inp.value).filter(v => v !== "");
             return {
                 nome: box.querySelector('.v-nome').value,
+                cb: box.querySelector('.v-cb').value,
                 saida: box.querySelector('.v-saida').value,
                 local: box.querySelector('.v-local').value,
                 sloc: box.querySelector('.v-sloc').value,
