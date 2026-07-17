@@ -169,10 +169,17 @@
                     <div class="row g-2">
                         <div class="col-md-5">
                             <div class="row g-2">
+                                <div class="col-12 position-relative">
+                                    <label><i class="fa-solid fa-magnifying-glass"></i> Pesquisar Morada</label>
+                                    <input type="text" id="pesquisaMorada" class="form-control" placeholder="Escreve a rua ou local e escolhe uma sugestão..." autocomplete="off" oninput="pesquisarMorada()">
+                                    <div id="dropdownMorada" class="list-group hidden" style="position:absolute; z-index:1000; max-height:260px; overflow-y:auto; width:100%;"></div>
+                                    <small class="text-muted">Ou clica/arrasta o marcador no mapa para preencher automaticamente.</small>
+                                </div>
                                 <div class="col-9"><label>Rua / Avenida</label><input type="text" id="rua" class="form-control" onchange="atualizarMapa()"></div>
                                 <div class="col-3"><label>Nº</label><input type="text" id="porta" class="form-control"></div>
-                                <div class="col-8"><label>Localidade</label><input type="text" id="localidade" class="form-control" onchange="atualizarMapa()"></div>
-                                <div class="col-4"><label>Andar</label><input type="text" id="andar" class="form-control"></div>
+                                <div class="col-6"><label>Localidade</label><input type="text" id="localidade" class="form-control" onchange="atualizarMapa()"></div>
+                                <div class="col-3"><label>Cód. Postal</label><input type="text" id="codigoPostal" class="form-control" placeholder="0000-000"></div>
+                                <div class="col-3"><label>Andar</label><input type="text" id="andar" class="form-control"></div>
                                 <div class="col-12 mt-2">
                                     <label>Observações Adicionais</label>
                                     <textarea id="obs" class="form-control" rows="5"></textarea>
@@ -524,6 +531,11 @@
             if (e.target !== input && !dropdown.contains(e.target)) {
                 dropdown.classList.add('hidden');
             }
+            const dropdownMorada = document.getElementById('dropdownMorada');
+            const inputMorada = document.getElementById('pesquisaMorada');
+            if (e.target !== inputMorada && !dropdownMorada.contains(e.target)) {
+                dropdownMorada.classList.add('hidden');
+            }
             const painelEstados = document.getElementById('painelFiltroEstados');
             if (painelEstados && !painelEstados.contains(e.target)) {
                 painelEstados.classList.add('hidden');
@@ -618,7 +630,15 @@
     function initMap() {
         map = L.map('map').setView([39.7436, -8.8071], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        marker = L.marker([39.7436, -8.8071]).addTo(map);
+        marker = L.marker([39.7436, -8.8071], { draggable: true }).addTo(map);
+        marker.on('dragend', () => {
+            const pos = marker.getLatLng();
+            geocodificacaoInversa(pos.lat, pos.lng);
+        });
+        map.on('click', (e) => {
+            marker.setLatLng(e.latlng);
+            geocodificacaoInversa(e.latlng.lat, e.latlng.lng);
+        });
     }
 
     async function atualizarMapa() {
@@ -634,6 +654,68 @@
                 marker.setLatLng([data[0].lat, data[0].lon]);
             }
         } catch (e) {}
+    }
+
+    // ====== PESQUISA DE MORADA COM SUGESTÕES (Nominatim) ======
+    let timeoutPesquisaMorada = null;
+
+    function pesquisarMorada() {
+        clearTimeout(timeoutPesquisaMorada);
+        const termo = document.getElementById('pesquisaMorada').value.trim();
+        const dropdown = document.getElementById('dropdownMorada');
+
+        if (termo.length < 3) {
+            dropdown.classList.add('hidden');
+            dropdown.innerHTML = '';
+            return;
+        }
+
+        timeoutPesquisaMorada = setTimeout(async () => {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=pt&limit=6&q=${encodeURIComponent(termo)}`);
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    dropdown.innerHTML = '<div class="list-group-item text-muted">Sem resultados</div>';
+                } else {
+                    dropdown.innerHTML = data.map((item, i) =>
+                        `<button type="button" class="list-group-item list-group-item-action py-1" onclick="selecionarMorada(${i})">${item.display_name}</button>`
+                    ).join('');
+                    window._resultadosMorada = data;
+                }
+                dropdown.classList.remove('hidden');
+            } catch (e) {}
+        }, 450);
+    }
+
+    function selecionarMorada(i) {
+        const item = window._resultadosMorada[i];
+        const a = item.address || {};
+        document.getElementById('rua').value = a.road || a.pedestrian || a.footway || item.display_name.split(',')[0] || '';
+        document.getElementById('localidade').value = a.city || a.town || a.village || a.municipality || a.county || '';
+        document.getElementById('codigoPostal').value = a.postcode || '';
+        document.getElementById('pesquisaMorada').value = item.display_name;
+        document.getElementById('dropdownMorada').classList.add('hidden');
+        map.setView([item.lat, item.lon], 17);
+        marker.setLatLng([item.lat, item.lon]);
+    }
+
+    // ====== GEOCODIFICAÇÃO INVERSA (clicar/arrastar no mapa preenche a morada) ======
+    let timeoutGeocodInverso = null;
+
+    function geocodificacaoInversa(lat, lon) {
+        clearTimeout(timeoutGeocodInverso);
+        timeoutGeocodInverso = setTimeout(async () => {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`);
+                const item = await res.json();
+                const a = item.address || {};
+                document.getElementById('rua').value = a.road || a.pedestrian || a.footway || '';
+                document.getElementById('localidade').value = a.city || a.town || a.village || a.municipality || a.county || '';
+                document.getElementById('codigoPostal').value = a.postcode || '';
+                document.getElementById('pesquisaMorada').value = item.display_name || '';
+            } catch (e) {}
+        }, 350);
     }
 
     // GESTÃO DE VIATURAS COM SUBMENU DE ELEMENTOS
@@ -742,6 +824,7 @@
             classif: document.getElementById('classificacao').value,
             rua: document.getElementById('rua').value,
             localidade: document.getElementById('localidade').value,
+            codigoPostal: document.getElementById('codigoPostal').value,
             porta: document.getElementById('porta').value,
             andar: document.getElementById('andar').value,
             obs: document.getElementById('obs').value,
@@ -871,6 +954,10 @@
         document.getElementById('containerViaturas').innerHTML = '';
         document.getElementById('containerVitimas').innerHTML = '';
         document.getElementById('dropdownClassificacoes').classList.add('hidden');
+        document.getElementById('dropdownMorada').classList.add('hidden');
+        document.getElementById('pesquisaMorada').value = '';
+        marker.setLatLng([39.7436, -8.8071]);
+        map.setView([39.7436, -8.8071], 13);
         document.getElementById('btnApagar').classList.add('hidden');
         toggleTela('form'); 
         atualizarCorEstado(document.getElementById('estado'));
@@ -890,6 +977,8 @@
         document.getElementById('classificacao').value = o.classif;
         document.getElementById('rua').value = o.rua;
         document.getElementById('localidade').value = o.localidade;
+        document.getElementById('codigoPostal').value = o.codigoPostal || '';
+        document.getElementById('pesquisaMorada').value = '';
         document.getElementById('porta').value = o.porta;
         document.getElementById('andar').value = o.andar;
         document.getElementById('obs').value = o.obs;
