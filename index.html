@@ -21,11 +21,21 @@
         .elemento-row { background: #fff; border: 1px solid #eee; padding: 5px; margin-bottom: 5px; border-radius: 4px; display: flex; align-items: center; gap: 5px; }
         .hidden { display: none !important; }
         .badge-count { background-color: #212529; color: white; border-radius: 10px; padding: 3px 10px; font-weight: bold; font-size: 0.8rem; }
+        @media print {
+            #badgeAtivasFixo { display: none !important; }
+            .no-print { display: none !important; }
+            body { background: #fff !important; }
+            #telaEstatisticas .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container-fluid py-3">
+
+    <div id="badgeAtivasFixo" class="hidden" style="position:fixed; bottom:16px; right:16px; z-index:2000; font-size:0.9rem; padding:10px 16px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,0.35); cursor:pointer;" onclick="irParaAtivas()" title="Ver ocorrências ativas (Alerta + Em curso)">
+        <i class="fa-solid fa-triangle-exclamation me-1"></i><span id="badgeAtivasTexto">0 ativas</span>
+    </div>
 
     <div id="telaLogin" class="d-flex align-items-center justify-content-center" style="min-height:80vh;">
         <div class="card shadow p-4" style="width: 100%; max-width: 380px;">
@@ -105,16 +115,16 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-dark">
                         <tr>
-                            <th>Nº Interno</th>
-                            <th>Data</th>
-                            <th>SADO</th>
-                            <th>CODU</th>
-                            <th>CB</th>
-                            <th>Classificação</th>
-                            <th>Morada Completa</th>
-                            <th class="text-center">Veículos</th>
-                            <th class="text-center">Operacionais</th>
-                            <th>Estado</th>
+                            <th style="cursor:pointer" onclick="ordenarPor('id')">Nº Interno <span class="th-sort-icon" id="sortIcon-id"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('data')">Data <span class="th-sort-icon" id="sortIcon-data"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('sado')">SADO <span class="th-sort-icon" id="sortIcon-sado"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('codu')">CODU <span class="th-sort-icon" id="sortIcon-codu"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('cb')">CB <span class="th-sort-icon" id="sortIcon-cb"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('classif')">Classificação <span class="th-sort-icon" id="sortIcon-classif"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('morada')">Morada Completa <span class="th-sort-icon" id="sortIcon-morada"></span></th>
+                            <th class="text-center" style="cursor:pointer" onclick="ordenarPor('numViaturas')">Veículos <span class="th-sort-icon" id="sortIcon-numViaturas"></span></th>
+                            <th class="text-center" style="cursor:pointer" onclick="ordenarPor('numElementos')">Operacionais <span class="th-sort-icon" id="sortIcon-numElementos"></span></th>
+                            <th style="cursor:pointer" onclick="ordenarPor('estado')">Estado <span class="th-sort-icon" id="sortIcon-estado"></span></th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -133,7 +143,12 @@
                         <label class="mb-0 small">Data</label>
                         <input type="date" id="dataOcorrencia" class="form-control form-control-sm" style="width:150px">
                         <label class="mb-0 small">Hora</label>
-                        <input type="time" id="horaOcorrencia" class="form-control form-control-sm" style="width:110px">
+                        <input type="time" id="horaOcorrencia" class="form-control form-control-sm" style="width:110px" onchange="atualizarTemposFicha()">
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="mb-0 small">Encerramento</label>
+                        <input type="date" id="dataEncerramento" class="form-control form-control-sm" style="width:150px" onchange="atualizarTemposFicha()">
+                        <input type="time" id="horaEncerramento" class="form-control form-control-sm" style="width:110px" onchange="atualizarTemposFicha()">
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -158,7 +173,7 @@
                         </div>
                         <div class="col-md-2">
                             <label class="form-label fw-bold">Estado</label>
-                            <select id="estado" class="form-select fw-bold" onchange="atualizarCorEstado(this)">
+                            <select id="estado" class="form-select fw-bold" onchange="onEstadoChange(this)">
                                 <option value="alerta">ALERTA</option>
                                 <option value="em curso">EM CURSO</option>
                                 <option value="encerrada">ENCERRADA</option>
@@ -178,9 +193,14 @@
                         </div>
                         <div class="col-md-4 position-relative">
                             <label class="form-label fw-bold text-primary">Classificação (Código/Descrição)</label>
-                            <input type="text" id="classificacao" class="form-control border-primary" placeholder="Pesquise por código ou nome..." autocomplete="off" oninput="filtrarClassificacoes()" onfocus="filtrarClassificacoes()">
+                            <input type="text" id="classificacao" class="form-control border-primary" placeholder="Pesquise por código ou nome..." autocomplete="off" oninput="filtrarClassificacoes(); this.classList.remove('is-invalid')" onfocus="filtrarClassificacoes()">
                             <div id="dropdownClassificacoes" class="list-group hidden" style="position:absolute; z-index:1000; max-height:260px; overflow-y:auto; width:100%;"></div>
                         </div>
+                    </div>
+
+                    <div class="d-flex gap-3 flex-wrap mb-3">
+                        <span class="badge bg-light text-dark border"><i class="fa-solid fa-stopwatch me-1"></i>Tempo de resposta: <b id="dispTempoResposta">-</b></span>
+                        <span class="badge bg-light text-dark border"><i class="fa-solid fa-hourglass-half me-1"></i>Duração da ocorrência: <b id="dispDuracaoOcorrencia">-</b></span>
                     </div>
 
                     <div class="section-title">LOCALIZAÇÃO E MORADA</div>
@@ -193,7 +213,7 @@
                                     <div id="dropdownMorada" class="list-group hidden" style="position:absolute; z-index:1000; max-height:260px; overflow-y:auto; width:100%;"></div>
                                     <small class="text-muted">Ou clica/arrasta o marcador no mapa para preencher automaticamente.</small>
                                 </div>
-                                <div class="col-9"><label>Rua / Avenida</label><input type="text" id="rua" class="form-control" onchange="atualizarMapa()"></div>
+                                <div class="col-9"><label>Rua / Avenida</label><input type="text" id="rua" class="form-control" onchange="atualizarMapa()" oninput="this.classList.remove('is-invalid')"></div>
                                 <div class="col-3"><label>Nº</label><input type="text" id="porta" class="form-control"></div>
                                 <div class="col-6"><label>Localidade</label><input type="text" id="localidade" class="form-control" onchange="atualizarMapa()"></div>
                                 <div class="col-6">
@@ -241,12 +261,16 @@
 
     <div id="telaEstatisticas" class="hidden">
         <div class="card shadow border-0">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2 no-print">
                 <h5 class="mb-0 fw-bold"><i class="fa-solid fa-chart-column me-2"></i>ESTATÍSTICAS DE OCORRÊNCIAS</h5>
-                <button class="btn btn-sm btn-outline-light" onclick="fecharEstatisticas()">FECHAR</button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-light" onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir / PDF</button>
+                    <button class="btn btn-sm btn-outline-light" onclick="fecharEstatisticas()">FECHAR</button>
+                </div>
             </div>
+            <h5 class="fw-bold text-center d-none d-print-block py-2"><i class="fa-solid fa-chart-column me-2"></i>ESTATÍSTICAS DE OCORRÊNCIAS — Central de Emergência</h5>
             <div class="card-body">
-                <div class="row g-2 align-items-end mb-4">
+                <div class="row g-2 align-items-end mb-4 no-print">
                     <div class="col-auto">
                         <label class="form-label small mb-0">De</label>
                         <input type="date" id="statsDataDe" class="form-control form-control-sm" style="width:145px" onchange="renderEstatisticas()">
@@ -335,6 +359,24 @@
                             <div class="text-muted small">Vítimas</div>
                         </div>
                     </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statTotalKm">0</div>
+                            <div class="text-muted small">Km percorridos</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statMediaResposta">-</div>
+                            <div class="text-muted small">Tempo médio de resposta</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statMediaDuracao">-</div>
+                            <div class="text-muted small">Duração média</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="row g-3">
@@ -360,6 +402,18 @@
                         <div class="card border-0 shadow-sm p-3">
                             <h6 class="fw-bold">Classificações mais frequentes</h6>
                             <div style="position:relative; height:260px;"><canvas id="chartClassificacao"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Vítimas por gravidade</h6>
+                            <div style="position:relative; height:220px;"><canvas id="chartVitimas"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Km percorridos por viatura</h6>
+                            <div style="position:relative; height:260px;"><canvas id="chartKmViaturas"></canvas></div>
                         </div>
                     </div>
                     <div class="col-12">
@@ -398,6 +452,12 @@
     const firestore = firebase.firestore();
     const colecao = firestore.collection('ocorrencias');
     let unsubscribeSnapshot = null;
+
+    // Ativa persistência offline: os dados ficam guardados localmente e os registos
+    // feitos sem ligação são sincronizados automaticamente quando a ligação voltar.
+    firestore.enablePersistence({ synchronizeTabs: true }).catch(err => {
+        console.warn('Persistência offline não disponível:', err.code);
+    });
 </script>
 
 <script>
@@ -776,24 +836,57 @@
         if (user) {
             document.getElementById('telaLogin').classList.add('hidden');
             document.getElementById('telaListagem').classList.remove('hidden');
+            document.getElementById('badgeAtivasFixo').classList.remove('hidden');
             ligarSincronizacao();
         } else {
             if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
             db = [];
             document.getElementById('telaListagem').classList.add('hidden');
             document.getElementById('telaFormulario').classList.add('hidden');
+            document.getElementById('telaEstatisticas').classList.add('hidden');
+            document.getElementById('badgeAtivasFixo').classList.add('hidden');
             document.getElementById('telaLogin').classList.remove('hidden');
         }
     });
 
+    // Atualiza o badge fixo com o nº de ocorrências ativas (Alerta + Em curso).
+    function atualizarBadgeAtivas() {
+        const ativas = db.filter(o => o.estado === 'alerta' || o.estado === 'em curso').length;
+        const badge = document.getElementById('badgeAtivasFixo');
+        const texto = document.getElementById('badgeAtivasTexto');
+        texto.textContent = ativas + (ativas === 1 ? ' ativa' : ' ativas');
+        badge.classList.toggle('bg-danger', ativas > 0);
+        badge.classList.toggle('bg-secondary', ativas === 0);
+        badge.classList.add('text-white');
+    }
+
+    // Vai para a listagem já filtrada pelas ocorrências ativas.
+    function irParaAtivas() {
+        document.getElementById('telaFormulario').classList.add('hidden');
+        document.getElementById('telaEstatisticas').classList.add('hidden');
+        document.getElementById('telaListagem').classList.remove('hidden');
+        document.querySelectorAll('.filtro-estado-chk').forEach(c => c.checked = (c.value === 'alerta' || c.value === 'em curso'));
+        document.getElementById('filtroDataDe').value = '';
+        document.getElementById('filtroDataAte').value = '';
+        document.getElementById('filtroCB').value = '';
+        document.getElementById('filtroFreguesia').value = '';
+        renderList();
+    }
+
     // ====== SINCRONIZAÇÃO EM TEMPO REAL COM O FIRESTORE ======
     function ligarSincronizacao() {
         const statusEl = document.getElementById('statusSync');
-        unsubscribeSnapshot = colecao.orderBy('criadoEm', 'desc').onSnapshot(snapshot => {
+        unsubscribeSnapshot = colecao.orderBy('criadoEm', 'desc').onSnapshot({ includeMetadataChanges: true }, snapshot => {
             db = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
             renderList();
-            statusEl.textContent = 'sincronizado';
-            statusEl.className = 'badge bg-success';
+            atualizarBadgeAtivas();
+            if (snapshot.metadata.fromCache) {
+                statusEl.textContent = 'offline (dados locais)';
+                statusEl.className = 'badge bg-warning text-dark';
+            } else {
+                statusEl.textContent = 'sincronizado';
+                statusEl.className = 'badge bg-success';
+            }
         }, err => {
             console.error(err);
             statusEl.textContent = 'erro de sincronização';
@@ -1023,7 +1116,7 @@
                     <div class="col-md-9">
                         <div class="row g-1">
                             <div class="col-2"><small>Saída</small><input type="time" class="form-control form-control-sm v-saida" value="${dados?dados.saida:''}"></div>
-                            <div class="col-2"><small>No Local</small><input type="time" class="form-control form-control-sm v-local" value="${dados?dados.local:''}"></div>
+                            <div class="col-2"><small>No Local</small><input type="time" class="form-control form-control-sm v-local" value="${dados?dados.local:''}" onchange="atualizarTemposFicha()"></div>
                             <div class="col-2"><small>S. Local</small><input type="time" class="form-control form-control-sm v-sloc" value="${dados?dados.sloc:''}"></div>
                             <div class="col-2"><small>Regresso</small><input type="time" class="form-control form-control-sm v-regr" value="${dados?dados.regr:''}"></div>
                             <div class="col-2"><small>KM Ocorr.</small><input type="number" class="form-control form-control-sm v-kmoc" value="${dados?dados.kmoc:''}"></div>
@@ -1042,6 +1135,7 @@
         if(dados && dados.equipa) {
             dados.equipa.forEach(nomeElemento => addEquipa(vId, nomeElemento));
         }
+        atualizarTemposFicha();
     }
 
     function addEquipa(vId, nome = "") {
@@ -1081,7 +1175,49 @@
     }
 
     // CÁLCULOS E SALVAMENTO
+    // Marca visualmente os campos obrigatórios em falta e devolve os seus nomes.
+    function validarCamposObrigatorios() {
+        const campos = [
+            { id: 'classificacao', nome: 'Classificação' },
+            { id: 'rua', nome: 'Rua/Avenida' }
+        ];
+        const emFalta = [];
+        campos.forEach(c => {
+            const el = document.getElementById(c.id);
+            const vazio = !el.value.trim();
+            el.classList.toggle('is-invalid', vazio);
+            if (vazio) emFalta.push({ id: c.id, nome: c.nome });
+        });
+        return emFalta;
+    }
+
+    // Verifica se já existe outra ocorrência com o mesmo Nº SADO ou Nº CODU.
+    function verificarDuplicado() {
+        const sado = document.getElementById('numSado').value.trim();
+        const codu = document.getElementById('numCodu').value.trim();
+        if (!sado && !codu) return null;
+        return db.find((o, idx) => {
+            if (editIdx !== -1 && idx === editIdx) return false; // ignora a própria ocorrência em edição
+            const mesmoSado = sado && o.sado && o.sado.trim() === sado;
+            const mesmoCodu = codu && o.codu && o.codu.trim() === codu;
+            return mesmoSado || mesmoCodu;
+        }) || null;
+    }
+
     function salvarOcorrencia() {
+        const emFalta = validarCamposObrigatorios();
+        if (emFalta.length) {
+            alert('Preenche os seguintes campos obrigatórios antes de guardar:\n- ' + emFalta.map(c => c.nome).join('\n- '));
+            document.getElementById(emFalta[0].id).focus();
+            return;
+        }
+
+        const duplicado = verificarDuplicado();
+        if (duplicado) {
+            const continuar = confirm(`Atenção: já existe a ocorrência Nº Interno ${duplicado.id} com o mesmo Nº SADO/CODU.\n\nQueres continuar a guardar mesmo assim?`);
+            if (!continuar) return;
+        }
+
         const viaturasArr = Array.from(document.querySelectorAll('.viatura-box')).map(box => {
             const elementos = Array.from(box.querySelectorAll('.e-nome')).map(inp => inp.value).filter(v => v !== "");
             return {
@@ -1102,6 +1238,8 @@
             id: document.getElementById('numInterno').value,
             data: document.getElementById('dataOcorrencia').value,
             hora: document.getElementById('horaOcorrencia').value,
+            dataEncerramento: document.getElementById('dataEncerramento').value,
+            horaEncerramento: document.getElementById('horaEncerramento').value,
             sado: document.getElementById('numSado').value,
             codu: document.getElementById('numCodu').value,
             estado: document.getElementById('estado').value,
@@ -1176,7 +1314,8 @@
 
     // ====== DASHBOARD DE ESTATÍSTICAS (acesso protegido pelo mesmo código de apagar) ======
     let chartEstadosInstance = null, chartCBInstance = null, chartFreguesiaInstance = null,
-        chartClassificacaoInstance = null, chartTimelineInstance = null;
+        chartClassificacaoInstance = null, chartTimelineInstance = null,
+        chartVitimasInstance = null, chartKmViaturasInstance = null;
 
     function abrirEstatisticas() {
         const codigo = prompt('Introduz o código de acesso às estatísticas:');
@@ -1268,6 +1407,34 @@
         document.getElementById('statTotalViaturas').textContent = totalViaturas;
         document.getElementById('statTotalOperacionais').textContent = totalOperacionais;
         document.getElementById('statTotalVitimas').textContent = totalVitimas;
+
+        // ---- Km percorridos (total e por viatura) ----
+        const kmPorViatura = {};
+        filtradas.forEach(o => {
+            (o.viaturas || []).forEach(v => {
+                const kmoc = parseFloat(v.kmoc), kmtot = parseFloat(v.kmtot);
+                if (!isNaN(kmoc) && !isNaN(kmtot) && kmtot >= kmoc) {
+                    const nome = v.nome && v.nome.trim() ? v.nome.trim() : '(sem nome)';
+                    kmPorViatura[nome] = (kmPorViatura[nome] || 0) + (kmtot - kmoc);
+                }
+            });
+        });
+        const totalKm = Object.values(kmPorViatura).reduce((a, b) => a + b, 0);
+        const topKmViaturas = Object.entries(kmPorViatura).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        document.getElementById('statTotalKm').textContent = totalKm.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
+
+        // ---- Tempo médio de resposta e duração média ----
+        const temposResposta = filtradas.map(tempoRespostaOcorrencia).filter(v => v !== null);
+        const mediaResposta = temposResposta.length ? Math.round(temposResposta.reduce((a, b) => a + b, 0) / temposResposta.length) : null;
+        const duracoes = filtradas.map(duracaoOcorrencia).filter(v => v !== null);
+        const mediaDuracao = duracoes.length ? Math.round(duracoes.reduce((a, b) => a + b, 0) / duracoes.length) : null;
+        document.getElementById('statMediaResposta').textContent = formatarDuracao(mediaResposta);
+        document.getElementById('statMediaDuracao').textContent = formatarDuracao(mediaDuracao);
+
+        // ---- Vítimas por gravidade ----
+        const gravidades = { 'assistido': 'Assistido', 'leve': 'Leve', 'grave': 'Grave', 'morto': 'Morto', 'recusa': 'Recusa', 'abandonou': 'Abandonou' };
+        const contagemGravidade = { assistido: 0, leve: 0, grave: 0, morto: 0, recusa: 0, abandonou: 0 };
+        filtradas.forEach(o => (o.vitimas || []).forEach(v => { if (contagemGravidade[v.grav] !== undefined) contagemGravidade[v.grav]++; }));
 
         // ---- Por estado ----
         const contagemEstados = { 'alerta': 0, 'em curso': 0, 'encerrada': 0, 'anulada': 0 };
@@ -1377,6 +1544,40 @@
             }
         });
 
+        if (chartVitimasInstance) chartVitimasInstance.destroy();
+        chartVitimasInstance = new Chart(document.getElementById('chartVitimas'), {
+            type: 'bar',
+            data: {
+                labels: Object.values(gravidades),
+                datasets: [{
+                    label: 'Vítimas',
+                    data: Object.keys(gravidades).map(g => contagemGravidade[g]),
+                    backgroundColor: ['#0dcaf0', '#28a745', '#dc3545', '#212529', '#6c757d', '#fd7e14'],
+                    maxBarThickness: 40
+                }]
+            },
+            options: {
+                ...opcoesComuns, plugins: { legend: { display: false } },
+                scales: { x: { ticks: { font: fonteTicks } }, y: { beginAtZero: true, ticks: { precision: 0, font: fonteTicks } } }
+            }
+        });
+
+        if (chartKmViaturasInstance) chartKmViaturasInstance.destroy();
+        chartKmViaturasInstance = new Chart(document.getElementById('chartKmViaturas'), {
+            type: 'bar',
+            data: {
+                labels: topKmViaturas.map(v => v[0]),
+                datasets: [{ label: 'Km percorridos', data: topKmViaturas.map(v => Math.round(v[1])), backgroundColor: '#20c997', maxBarThickness: 22 }]
+            },
+            options: {
+                ...opcoesComuns, indexAxis: 'y', plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { font: fonteTicks } },
+                    y: { ticks: { font: fonteTicks, autoSkip: false, callback: callbackTruncarEixo(18) } }
+                }
+            }
+        });
+
         if (chartTimelineInstance) chartTimelineInstance.destroy();
         chartTimelineInstance = new Chart(document.getElementById('chartTimeline'), {
             type: 'line',
@@ -1405,6 +1606,37 @@
         if (freguesias.includes(atual)) sel.value = atual;
     }
 
+    // ====== ORDENAÇÃO DA LISTAGEM ======
+    let sortField = 'data', sortDir = 'desc';
+
+    function ordenarPor(campo) {
+        if (sortField === campo) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        else { sortField = campo; sortDir = 'asc'; }
+        renderList();
+    }
+
+    function valorOrdenacao(o, campo) {
+        switch (campo) {
+            case 'id': return o.id || '';
+            case 'data': return `${o.data || ''} ${o.hora || ''}`;
+            case 'sado': return o.sado || '';
+            case 'codu': return o.codu || '';
+            case 'cb': return o.cb || '';
+            case 'classif': return o.classif || '';
+            case 'morada': return `${o.rua || ''} ${o.localidade || ''}`;
+            case 'numViaturas': return o.numViaturas || 0;
+            case 'numElementos': return o.numElementos || 0;
+            case 'estado': return o.estado || '';
+            default: return '';
+        }
+    }
+
+    function atualizarIconesOrdenacao() {
+        document.querySelectorAll('.th-sort-icon').forEach(el => el.textContent = '');
+        const icon = document.getElementById('sortIcon-' + sortField);
+        if (icon) icon.textContent = sortDir === 'asc' ? '▲' : '▼';
+    }
+
     function renderList() {
         atualizarFiltroFreguesia();
         const corpo = document.getElementById('tabelaCorpo');
@@ -1415,13 +1647,26 @@
         const freguesiaSelecionada = document.getElementById('filtroFreguesia').value;
         const estadosVisiveis = Array.from(document.querySelectorAll('.filtro-estado-chk:checked')).map(c => c.value);
 
-        db.forEach((o, i) => {
-            if (!estadosVisiveis.includes(o.estado)) return;
-            if (dataDe && (!o.data || o.data < dataDe)) return;
-            if (dataAte && (!o.data || o.data > dataAte)) return;
-            if (cbSelecionado && o.cb !== cbSelecionado) return;
-            if (freguesiaSelecionada && (o.freguesia || '') !== freguesiaSelecionada) return;
+        const linhas = db
+            .map((o, i) => ({ o, i }))
+            .filter(({ o }) => {
+                if (!estadosVisiveis.includes(o.estado)) return false;
+                if (dataDe && (!o.data || o.data < dataDe)) return false;
+                if (dataAte && (!o.data || o.data > dataAte)) return false;
+                if (cbSelecionado && o.cb !== cbSelecionado) return false;
+                if (freguesiaSelecionada && (o.freguesia || '') !== freguesiaSelecionada) return false;
+                return true;
+            });
 
+        linhas.sort((a, b) => {
+            const va = valorOrdenacao(a.o, sortField), vb = valorOrdenacao(b.o, sortField);
+            let cmp;
+            if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb;
+            else cmp = String(va).localeCompare(String(vb), 'pt', { numeric: true, sensitivity: 'base' });
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+
+        linhas.forEach(({ o, i }) => {
             const detalheViaturas = (o.viaturas && o.viaturas.length > 0)
                 ? o.viaturas.map(v => `
                     <div class="d-inline-block me-4 mb-2 align-top">
@@ -1448,6 +1693,8 @@
                 <td colspan="10" class="bg-light border-top-0 py-2">${detalheViaturas}</td>
             </tr>`;
         });
+
+        atualizarIconesOrdenacao();
     }
 
     function toggleDetalhe(i) {
@@ -1500,9 +1747,12 @@
     function novaOcorrencia() {
         editIdx = -1; 
         document.getElementById('mainForm').reset();
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         document.getElementById('numInterno').value = proximoNumInterno();
         document.getElementById('dataOcorrencia').value = dataAtualInput();
         document.getElementById('horaOcorrencia').value = horaAtualInput();
+        document.getElementById('dataEncerramento').value = '';
+        document.getElementById('horaEncerramento').value = '';
         document.getElementById('containerViaturas').innerHTML = '';
         document.getElementById('containerVitimas').innerHTML = '';
         document.getElementById('dropdownClassificacoes').classList.add('hidden');
@@ -1514,6 +1764,7 @@
         document.getElementById('btnApagar').classList.add('hidden');
         toggleTela('form'); 
         atualizarCorEstado(document.getElementById('estado'));
+        atualizarTemposFicha();
     }
 
     function editar(idx) {
@@ -1523,6 +1774,8 @@
         document.getElementById('numInterno').value = o.id;
         document.getElementById('dataOcorrencia').value = o.data || '';
         document.getElementById('horaOcorrencia').value = o.hora || '';
+        document.getElementById('dataEncerramento').value = o.dataEncerramento || '';
+        document.getElementById('horaEncerramento').value = o.horaEncerramento || '';
         document.getElementById('numSado').value = o.sado;
         document.getElementById('numCodu').value = o.codu;
         document.getElementById('estado').value = o.estado;
@@ -1543,6 +1796,7 @@
         o.vitimas.forEach(v => addVitima(v));
         atualizarCorEstado(document.getElementById('estado')); 
         atualizarMapa();
+        atualizarTemposFicha();
     }
 
     function remover(id) { document.getElementById(id).remove(); }
@@ -1554,6 +1808,70 @@
     function cancelar() { toggleTela('list'); }
     function atualizarCorEstado(sel) { sel.className = 'form-select fw-bold ' + classeEstado(sel.value); }
     function classeEstado(estado) { return 'state-' + estado.replace(/\s+/g, '-'); }
+
+    // ====== TEMPO DE RESPOSTA E DURAÇÃO DA OCORRÊNCIA ======
+    function onEstadoChange(sel) {
+        atualizarCorEstado(sel);
+        // Ao encerrar, sugere a data/hora atuais para o encerramento (só se ainda estiverem vazias).
+        if (sel.value === 'encerrada') {
+            const dataEnc = document.getElementById('dataEncerramento');
+            const horaEnc = document.getElementById('horaEncerramento');
+            if (!dataEnc.value) dataEnc.value = dataAtualInput();
+            if (!horaEnc.value) horaEnc.value = horaAtualInput();
+        }
+        atualizarTemposFicha();
+    }
+
+    function minutosEntre(data1, hora1, data2, hora2) {
+        if (!data1 || !hora1 || !data2 || !hora2) return null;
+        const d1 = new Date(`${data1}T${hora1}:00`);
+        const d2 = new Date(`${data2}T${hora2}:00`);
+        if (isNaN(d1) || isNaN(d2)) return null;
+        const diffMin = Math.round((d2 - d1) / 60000);
+        return diffMin >= 0 ? diffMin : null;
+    }
+
+    function formatarDuracao(minutos) {
+        if (minutos === null || minutos === undefined || isNaN(minutos)) return '-';
+        const h = Math.floor(minutos / 60);
+        const m = minutos % 60;
+        return (h > 0 ? h + 'h ' : '') + m + 'min';
+    }
+
+    // Tempo de resposta = do alerta até à chegada ao local da primeira viatura (assume o mesmo dia do alerta).
+    function tempoRespostaOcorrencia(o) {
+        if (!o.data || !o.hora || !o.viaturas || !o.viaturas.length) return null;
+        const chegadas = o.viaturas.map(v => v.local).filter(Boolean).sort();
+        if (!chegadas.length) return null;
+        return minutosEntre(o.data, o.hora, o.data, chegadas[0]);
+    }
+
+    // Duração = do alerta até ao encerramento (data/hora de encerramento).
+    function duracaoOcorrencia(o) {
+        if (!o.data || !o.hora || !o.horaEncerramento) return null;
+        const dataFim = o.dataEncerramento || o.data;
+        return minutosEntre(o.data, o.hora, dataFim, o.horaEncerramento);
+    }
+
+    // Recalcula e mostra o tempo de resposta e a duração na ficha atualmente aberta.
+    function atualizarTemposFicha() {
+        const dispResposta = document.getElementById('dispTempoResposta');
+        const dispDuracao = document.getElementById('dispDuracaoOcorrencia');
+        if (!dispResposta || !dispDuracao) return;
+
+        const oTemp = {
+            data: document.getElementById('dataOcorrencia').value,
+            hora: document.getElementById('horaOcorrencia').value,
+            dataEncerramento: document.getElementById('dataEncerramento').value,
+            horaEncerramento: document.getElementById('horaEncerramento').value,
+            viaturas: Array.from(document.querySelectorAll('.viatura-box')).map(box => ({
+                local: box.querySelector('.v-local') ? box.querySelector('.v-local').value : ''
+            }))
+        };
+
+        dispResposta.textContent = formatarDuracao(tempoRespostaOcorrencia(oTemp));
+        dispDuracao.textContent = formatarDuracao(duracaoOcorrencia(oTemp));
+    }
 </script>
 </body>
 </html>
