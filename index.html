@@ -413,7 +413,7 @@
                     </div>
                     <div class="col-md-6">
                         <div class="card border-0 shadow-sm p-3">
-                            <h6 class="fw-bold">Km percorridos por viatura</h6>
+                            <h6 class="fw-bold">Km percorridos por CB</h6>
                             <div style="position:relative; height:260px;"><canvas id="chartKmViaturas"></canvas></div>
                         </div>
                     </div>
@@ -1422,19 +1422,19 @@
         document.getElementById('statTotalOperacionais').textContent = totalOperacionais;
         document.getElementById('statTotalVitimas').textContent = totalVitimas;
 
-        // ---- Km percorridos (soma do "KM Ocorr." de cada viatura mobilizada) ----
-        const kmPorViatura = {};
+        // ---- Km percorridos (soma do "KM Ocorr." de cada viatura mobilizada, agrupado por CB) ----
+        const kmPorCB = {};
         filtradas.forEach(o => {
             (o.viaturas || []).forEach(v => {
                 const km = parseFloat(v.kmoc);
                 if (!isNaN(km)) {
-                    const nome = v.nome && v.nome.trim() ? v.nome.trim() : '(sem nome)';
-                    kmPorViatura[nome] = (kmPorViatura[nome] || 0) + km;
+                    const cbNome = v.cb && v.cb.trim() ? v.cb.trim() : 'Sem CB';
+                    kmPorCB[cbNome] = (kmPorCB[cbNome] || 0) + km;
                 }
             });
         });
-        const totalKm = Object.values(kmPorViatura).reduce((a, b) => a + b, 0);
-        const topKmViaturas = Object.entries(kmPorViatura).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const totalKm = Object.values(kmPorCB).reduce((a, b) => a + b, 0);
+        const topKmCB = Object.entries(kmPorCB).sort((a, b) => b[1] - a[1]);
         document.getElementById('statTotalKm').textContent = totalKm.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
 
         // ---- Tempo médio de resposta e duração média ----
@@ -1580,14 +1580,14 @@
         chartKmViaturasInstance = new Chart(document.getElementById('chartKmViaturas'), {
             type: 'bar',
             data: {
-                labels: topKmViaturas.map(v => v[0]),
-                datasets: [{ label: 'Km percorridos', data: topKmViaturas.map(v => Math.round(v[1])), backgroundColor: '#20c997', maxBarThickness: 22 }]
+                labels: topKmCB.map(c => c[0]),
+                datasets: [{ label: 'Km percorridos', data: topKmCB.map(c => Math.round(c[1])), backgroundColor: '#20c997', maxBarThickness: 60 }]
             },
             options: {
-                ...opcoesComuns, indexAxis: 'y', plugins: { legend: { display: false } },
+                ...opcoesComuns, plugins: { legend: { display: false } },
                 scales: {
-                    x: { beginAtZero: true, ticks: { font: fonteTicks } },
-                    y: { ticks: { font: fonteTicks, autoSkip: false, callback: callbackTruncarEixo(18) } }
+                    x: { ticks: { font: fonteTicks } },
+                    y: { beginAtZero: true, ticks: { font: fonteTicks } }
                 }
             }
         });
