@@ -269,6 +269,7 @@
                 </div>
             </div>
             <h5 class="fw-bold text-center d-none d-print-block py-2"><i class="fa-solid fa-chart-column me-2"></i>ESTATÍSTICAS DE OCORRÊNCIAS — Central de Emergência</h5>
+            <div id="resumoFiltrosImpressao" class="d-none d-print-block text-center small text-muted mb-3 px-3"></div>
             <div class="card-body">
                 <div class="row g-2 align-items-end mb-4 no-print">
                     <div class="col-auto">
@@ -1120,7 +1121,6 @@
                             <div class="col-2"><small>S. Local</small><input type="time" class="form-control form-control-sm v-sloc" value="${dados?dados.sloc:''}"></div>
                             <div class="col-2"><small>Regresso</small><input type="time" class="form-control form-control-sm v-regr" value="${dados?dados.regr:''}"></div>
                             <div class="col-2"><small>KM Ocorr.</small><input type="number" class="form-control form-control-sm v-kmoc" value="${dados?dados.kmoc:''}"></div>
-                            <div class="col-2"><small>KM Totais</small><input type="number" class="form-control form-control-sm v-kmtot" value="${dados?dados.kmtot:''}"></div>
                             <div class="col-2"><small>Tempo de Bomba (h:min)</small><input type="time" class="form-control form-control-sm v-bomba" value="${dados?dados.bomba:''}"></div>
                         </div>
                         <div class="text-end mt-3">
@@ -1228,7 +1228,6 @@
                 sloc: box.querySelector('.v-sloc').value,
                 regr: box.querySelector('.v-regr').value,
                 kmoc: box.querySelector('.v-kmoc').value,
-                kmtot: box.querySelector('.v-kmtot').value,
                 bomba: box.querySelector('.v-bomba').value,
                 equipa: elementos
             };
@@ -1388,6 +1387,21 @@
         const classifEspecificaSel = document.getElementById('statsClassificacaoEspecifica').value;
         const estadosVisiveis = Array.from(document.querySelectorAll('.stats-estado-chk:checked')).map(c => c.value);
 
+        // ---- Resumo dos filtros aplicados (mostrado apenas na impressão) ----
+        const nomesEstados = { 'alerta': 'Alerta', 'em curso': 'Em curso', 'encerrada': 'Encerrada', 'anulada': 'Anulada' };
+        const partesResumo = [];
+        if (dataDe || dataAte) {
+            partesResumo.push(`Período: ${dataDe ? formatarDataHora(dataDe) : 'início'} a ${dataAte ? formatarDataHora(dataAte) : 'hoje'}`);
+        }
+        if (cbSel) partesResumo.push(`CB: ${cbSel}`);
+        if (freguesiaSel) partesResumo.push(`Freguesia: ${freguesiaSel}`);
+        if (grupoSel) partesResumo.push(`Grupo de classificação: ${grupoSel}`);
+        if (classifEspecificaSel) partesResumo.push(`Classificação: ${classifEspecificaSel}`);
+        if (estadosVisiveis.length < 4) partesResumo.push(`Estados: ${estadosVisiveis.map(e => nomesEstados[e] || e).join(', ')}`);
+        const resumoFiltros = (partesResumo.length ? partesResumo.join(' · ') : 'Sem filtros aplicados (todos os registos)')
+            + ` · Relatório gerado em ${new Date().toLocaleString('pt-PT')}`;
+        document.getElementById('resumoFiltrosImpressao').textContent = resumoFiltros;
+
         const filtradas = db.filter(o => {
             if (!estadosVisiveis.includes(o.estado)) return false;
             if (dataDe && (!o.data || o.data < dataDe)) return false;
@@ -1408,14 +1422,14 @@
         document.getElementById('statTotalOperacionais').textContent = totalOperacionais;
         document.getElementById('statTotalVitimas').textContent = totalVitimas;
 
-        // ---- Km percorridos (total e por viatura) ----
+        // ---- Km percorridos (soma do "KM Ocorr." de cada viatura mobilizada) ----
         const kmPorViatura = {};
         filtradas.forEach(o => {
             (o.viaturas || []).forEach(v => {
-                const kmoc = parseFloat(v.kmoc), kmtot = parseFloat(v.kmtot);
-                if (!isNaN(kmoc) && !isNaN(kmtot) && kmtot >= kmoc) {
+                const km = parseFloat(v.kmoc);
+                if (!isNaN(km)) {
                     const nome = v.nome && v.nome.trim() ? v.nome.trim() : '(sem nome)';
-                    kmPorViatura[nome] = (kmPorViatura[nome] || 0) + (kmtot - kmoc);
+                    kmPorViatura[nome] = (kmPorViatura[nome] || 0) + km;
                 }
             });
         });
