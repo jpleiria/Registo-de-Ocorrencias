@@ -54,6 +54,23 @@
                     <small class="text-muted">Até</small>
                     <input type="date" id="filtroDataAte" class="form-control form-control-sm" style="width:145px" onchange="renderList()">
                 </div>
+                <div class="d-flex align-items-center gap-1">
+                    <small class="text-muted">CB</small>
+                    <select id="filtroCB" class="form-select form-select-sm" style="width:110px" onchange="renderList()">
+                        <option value="">Todos</option>
+                        <option value="CMOS">CMOS</option>
+                        <option value="BSL">BSL</option>
+                        <option value="BVM">BVM</option>
+                        <option value="BVL">BVL</option>
+                        <option value="BVO">BVO</option>
+                    </select>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <small class="text-muted">Freguesia</small>
+                    <select id="filtroFreguesia" class="form-select form-select-sm" style="width:150px" onchange="renderList()">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
                 <div class="position-relative">
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleFiltroEstados(event)">
                         <i class="fa-solid fa-sliders"></i> Estados a mostrar
@@ -78,6 +95,7 @@
                     </div>
                 </div>
                 <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltros()" title="Limpar filtros"><i class="fa-solid fa-filter-circle-xmark"></i></button>
+                <button class="btn btn-outline-dark" onclick="abrirEstatisticas()" title="Estatísticas (acesso protegido)"><i class="fa-solid fa-chart-column"></i> ESTATÍSTICAS</button>
                 <button class="btn btn-outline-secondary" onclick="fazerLogout()" title="Terminar sessão"><i class="fa-solid fa-right-from-bracket"></i></button>
                 <button class="btn btn-danger btn-lg shadow" onclick="novaOcorrencia()"><i class="fa-solid fa-plus"></i> NOVA OCORRÊNCIA</button>
             </div>
@@ -178,6 +196,11 @@
                                 <div class="col-9"><label>Rua / Avenida</label><input type="text" id="rua" class="form-control" onchange="atualizarMapa()"></div>
                                 <div class="col-3"><label>Nº</label><input type="text" id="porta" class="form-control"></div>
                                 <div class="col-6"><label>Localidade</label><input type="text" id="localidade" class="form-control" onchange="atualizarMapa()"></div>
+                                <div class="col-6">
+                                    <label>Freguesia</label>
+                                    <select id="freguesia" class="form-select" onchange="onFreguesiaChange()"><option value="">-</option></select>
+                                    <input type="text" id="freguesiaManual" class="form-control mt-1 hidden" placeholder="Escreve o nome da freguesia (fora do concelho de Leiria)">
+                                </div>
                                 <div class="col-3"><label>Cód. Postal</label><input type="text" id="codigoPostal" class="form-control" placeholder="0000-000"></div>
                                 <div class="col-3"><label>Andar</label><input type="text" id="andar" class="form-control"></div>
                                 <div class="col-12 mt-2">
@@ -215,9 +238,144 @@
             </div>
         </div>
     </div>
+
+    <div id="telaEstatisticas" class="hidden">
+        <div class="card shadow border-0">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold"><i class="fa-solid fa-chart-column me-2"></i>ESTATÍSTICAS DE OCORRÊNCIAS</h5>
+                <button class="btn btn-sm btn-outline-light" onclick="fecharEstatisticas()">FECHAR</button>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 align-items-end mb-4">
+                    <div class="col-auto">
+                        <label class="form-label small mb-0">De</label>
+                        <input type="date" id="statsDataDe" class="form-control form-control-sm" style="width:145px" onchange="renderEstatisticas()">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-0">Até</label>
+                        <input type="date" id="statsDataAte" class="form-control form-control-sm" style="width:145px" onchange="renderEstatisticas()">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-0">CB</label>
+                        <select id="statsCB" class="form-select form-select-sm" style="width:110px" onchange="renderEstatisticas()">
+                            <option value="">Todos</option>
+                            <option value="CMOS">CMOS</option>
+                            <option value="BSL">BSL</option>
+                            <option value="BVM">BVM</option>
+                            <option value="BVL">BVL</option>
+                            <option value="BVO">BVO</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-0">Freguesia</label>
+                        <select id="statsFreguesia" class="form-select form-select-sm" style="width:180px" onchange="renderEstatisticas()">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-0">Grupo de Classificação</label>
+                        <select id="statsGrupoClassif" class="form-select form-select-sm" style="width:220px" onchange="atualizarFiltroClassificacaoEspecificaEstatisticas(); renderEstatisticas()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-0">Classificação específica</label>
+                        <select id="statsClassificacaoEspecifica" class="form-select form-select-sm" style="width:220px" onchange="renderEstatisticas()">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-0 d-block">Estados</label>
+                        <div class="d-flex gap-2 pt-1">
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input stats-estado-chk" type="checkbox" value="alerta" id="statsChkAlerta" checked onchange="renderEstatisticas()">
+                                <label class="form-check-label small" for="statsChkAlerta">Alerta</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input stats-estado-chk" type="checkbox" value="em curso" id="statsChkEmCurso" checked onchange="renderEstatisticas()">
+                                <label class="form-check-label small" for="statsChkEmCurso">Em curso</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input stats-estado-chk" type="checkbox" value="encerrada" id="statsChkEncerrada" checked onchange="renderEstatisticas()">
+                                <label class="form-check-label small" for="statsChkEncerrada">Encerrada</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input stats-estado-chk" type="checkbox" value="anulada" id="statsChkAnulada" checked onchange="renderEstatisticas()">
+                                <label class="form-check-label small" for="statsChkAnulada">Anulada</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltrosEstatisticas()" title="Limpar filtros"><i class="fa-solid fa-filter-circle-xmark"></i> Limpar</button>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statTotalOcorrencias">0</div>
+                            <div class="text-muted small">Ocorrências</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statTotalViaturas">0</div>
+                            <div class="text-muted small">Viaturas mobilizadas</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statTotalOperacionais">0</div>
+                            <div class="text-muted small">Operacionais mobilizados</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card text-center border-0 shadow-sm p-3">
+                            <div class="fs-3 fw-bold" id="statTotalVitimas">0</div>
+                            <div class="text-muted small">Vítimas</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Por Estado</h6>
+                            <div style="position:relative; height:220px;"><canvas id="chartEstados"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Por CB</h6>
+                            <div style="position:relative; height:220px;"><canvas id="chartCB"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Por Freguesia</h6>
+                            <div style="position:relative; height:260px;"><canvas id="chartFreguesia"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Classificações mais frequentes</h6>
+                            <div style="position:relative; height:260px;"><canvas id="chartClassificacao"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm p-3">
+                            <h6 class="fw-bold">Ocorrências por dia</h6>
+                            <div style="position:relative; height:180px;"><canvas id="chartTimeline"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -520,6 +678,22 @@
         "9999 - Situação Crítica"
     ];
 
+    // ====== GRUPOS DE CLASSIFICAÇÃO (baseado no 1º dígito do código, conforme o sistema ANEPC) ======
+    const gruposClassificacao = {
+        "1": "1 - Fenómenos Naturais",
+        "2": "2 - Incêndios Urbanos/Industriais e Acidentes",
+        "3": "3 - Incêndios Florestais e Danos Estruturais",
+        "4": "4 - Emergências Médicas e Proteção de Pessoas",
+        "9": "9 - Operações Diversas / Institucionais"
+    };
+
+    function grupoDaClassificacao(classif) {
+        if (!classif) return '';
+        const codigo = classif.trim().split(' ')[0];
+        const primeiroDigito = codigo.charAt(0);
+        return gruposClassificacao[primeiroDigito] || 'Outros';
+    }
+
     let db = [];
     let map, marker, editIdx = -1;
 
@@ -641,6 +815,106 @@
         });
     }
 
+    // ====== LISTA OFICIAL DE FREGUESIAS DO CONCELHO DE LEIRIA (atualizada) ======
+    // Fonte: Câmara Municipal de Leiria (20 freguesias/uniões de freguesias)
+    const freguesiasLeiria = [
+        "Amor", "Arrabal", "Bajouca", "Bidoeira de Cima", "Caranguejeira", "Carreira",
+        "Coimbrão", "Maceira", "Milagres", "Monte Redondo", "Ortigosa", "Regueira de Pontes",
+        "Souto da Carpalhosa", "Colmeias e Memória", "Leiria, Pousos, Barreira e Cortes",
+        "Marrazes e Barosa", "Monte Real e Carvide", "Parceiros e Azoia",
+        "Santa Catarina da Serra e Chainça", "Santa Eufémia e Boa Vista"
+    ];
+    const selFreguesia = document.getElementById('freguesia');
+    selFreguesia.innerHTML = '<option value="">-</option>' + freguesiasLeiria.map(f => `<option value="${f}">${f}</option>`).join('')
+        + '<option value="__outra__">Outra (fora do concelho de Leiria)...</option>';
+
+    // Mostra/oculta o campo de texto livre quando é escolhida a opção "Outra".
+    function onFreguesiaChange() {
+        const manual = document.getElementById('freguesiaManual');
+        if (document.getElementById('freguesia').value === '__outra__') {
+            manual.classList.remove('hidden');
+            manual.focus();
+        } else {
+            manual.classList.add('hidden');
+            manual.value = '';
+        }
+    }
+
+    // Define o valor da freguesia (select + campo manual), quer venha do preenchimento
+    // automático quer da edição de uma ocorrência já guardada.
+    function setFreguesiaValor(nome) {
+        const sel = document.getElementById('freguesia');
+        const manual = document.getElementById('freguesiaManual');
+        if (!nome) {
+            sel.value = '';
+            manual.classList.add('hidden');
+            manual.value = '';
+        } else if (freguesiasLeiria.includes(nome)) {
+            sel.value = nome;
+            manual.classList.add('hidden');
+            manual.value = '';
+        } else {
+            sel.value = '__outra__';
+            manual.classList.remove('hidden');
+            manual.value = nome;
+        }
+    }
+
+    // Devolve o valor de freguesia a guardar, tendo em conta a opção "Outra".
+    function obterFreguesiaValor() {
+        const sel = document.getElementById('freguesia');
+        if (sel.value === '__outra__') return document.getElementById('freguesiaManual').value.trim();
+        return sel.value;
+    }
+
+    function normalizarTexto(s) {
+        return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    // Mapa de localidades/nomes conhecidos (incluindo as antigas freguesias que hoje integram
+    // uniões, e os próprios nomes completos das uniões) para a respetiva freguesia oficial atual.
+    const mapaFreguesiasLeiria = {};
+    freguesiasLeiria.forEach(f => { mapaFreguesiasLeiria[normalizarTexto(f)] = f; });
+    Object.assign(mapaFreguesiasLeiria, {
+        "colmeias": "Colmeias e Memória",
+        "memoria": "Colmeias e Memória",
+        "pousos": "Leiria, Pousos, Barreira e Cortes",
+        "barreira": "Leiria, Pousos, Barreira e Cortes",
+        "cortes": "Leiria, Pousos, Barreira e Cortes",
+        "marrazes": "Marrazes e Barosa",
+        "barosa": "Marrazes e Barosa",
+        "monte real": "Monte Real e Carvide",
+        "carvide": "Monte Real e Carvide",
+        "parceiros": "Parceiros e Azoia",
+        "azoia": "Parceiros e Azoia",
+        "santa catarina da serra": "Santa Catarina da Serra e Chainça",
+        "chainca": "Santa Catarina da Serra e Chainça",
+        "santa eufemia": "Santa Eufémia e Boa Vista",
+        "boa vista": "Santa Eufémia e Boa Vista"
+    });
+
+    // Determina a freguesia oficial do concelho de Leiria a partir do resultado do Nominatim.
+    // Dá prioridade aos campos de morada mais específicos (freguesia/localidade) e ignora
+    // explicitamente o nome do concelho (ex: "Leiria"), que de outra forma seria confundido
+    // com o início do nome da união de freguesias "Leiria, Pousos, Barreira e Cortes".
+    function determinarFreguesia(item) {
+        const a = item.address || {};
+        const concelho = normalizarTexto(a.municipality || a.county || '');
+
+        const candidatosGranulares = [a.suburb, a.city_district, a.quarter, a.hamlet, a.village, a.town].filter(Boolean);
+        const candidatosDisplay = item.display_name ? item.display_name.split(',').map(s => s.trim()) : [];
+        const candidatos = [...candidatosGranulares, ...candidatosDisplay];
+
+        for (const cand of candidatos) {
+            const chave = normalizarTexto(cand);
+            if (!chave || chave === concelho) continue; // ignora o próprio nome do concelho
+            if (mapaFreguesiasLeiria[chave]) return mapaFreguesiasLeiria[chave];
+        }
+        // Alternativa: se nada corresponder à lista oficial (ex: morada fora do concelho de Leiria),
+        // recua para a melhor estimativa disponível nos dados do Nominatim.
+        return a.suburb || a.city_district || a.quarter || a.hamlet || a.village || '';
+    }
+
     async function atualizarMapa() {
         const rua = document.getElementById('rua').value;
         const loc = document.getElementById('localidade').value;
@@ -693,6 +967,7 @@
         const a = item.address || {};
         document.getElementById('rua').value = a.road || a.pedestrian || a.footway || item.display_name.split(',')[0] || '';
         document.getElementById('localidade').value = a.city || a.town || a.village || a.municipality || a.county || '';
+        setFreguesiaValor(determinarFreguesia(item));
         document.getElementById('codigoPostal').value = a.postcode || '';
         document.getElementById('pesquisaMorada').value = item.display_name;
         document.getElementById('dropdownMorada').classList.add('hidden');
@@ -712,6 +987,7 @@
                 const a = item.address || {};
                 document.getElementById('rua').value = a.road || a.pedestrian || a.footway || '';
                 document.getElementById('localidade').value = a.city || a.town || a.village || a.municipality || a.county || '';
+                setFreguesiaValor(determinarFreguesia(item));
                 document.getElementById('codigoPostal').value = a.postcode || '';
                 document.getElementById('pesquisaMorada').value = item.display_name || '';
             } catch (e) {}
@@ -833,6 +1109,7 @@
             classif: document.getElementById('classificacao').value,
             rua: document.getElementById('rua').value,
             localidade: document.getElementById('localidade').value,
+            freguesia: obterFreguesiaValor(),
             codigoPostal: document.getElementById('codigoPostal').value,
             porta: document.getElementById('porta').value,
             andar: document.getElementById('andar').value,
@@ -897,17 +1174,253 @@
         });
     }
 
+    // ====== DASHBOARD DE ESTATÍSTICAS (acesso protegido pelo mesmo código de apagar) ======
+    let chartEstadosInstance = null, chartCBInstance = null, chartFreguesiaInstance = null,
+        chartClassificacaoInstance = null, chartTimelineInstance = null;
+
+    function abrirEstatisticas() {
+        const codigo = prompt('Introduz o código de acesso às estatísticas:');
+        if (codigo === null) return; // cancelado
+        if (codigo !== PIN_APAGAR) {
+            alert('Código incorreto.');
+            return;
+        }
+        document.getElementById('telaListagem').classList.add('hidden');
+        document.getElementById('telaFormulario').classList.add('hidden');
+        document.getElementById('telaEstatisticas').classList.remove('hidden');
+        const selGrupo = document.getElementById('statsGrupoClassif');
+        if (!selGrupo.dataset.populado) {
+            selGrupo.innerHTML = '<option value="">Todos</option>' + Object.values(gruposClassificacao).map(g => `<option value="${g}">${g}</option>`).join('');
+            selGrupo.dataset.populado = '1';
+        }
+        atualizarFiltroClassificacaoEspecificaEstatisticas();
+        // pequeno atraso para garantir que os canvas já têm dimensões antes de desenhar os gráficos
+        setTimeout(renderEstatisticas, 50);
+    }
+
+    function fecharEstatisticas() {
+        document.getElementById('telaEstatisticas').classList.add('hidden');
+        document.getElementById('telaListagem').classList.remove('hidden');
+    }
+
+    function limparFiltrosEstatisticas() {
+        document.getElementById('statsDataDe').value = '';
+        document.getElementById('statsDataAte').value = '';
+        document.getElementById('statsCB').value = '';
+        document.getElementById('statsFreguesia').value = '';
+        document.getElementById('statsGrupoClassif').value = '';
+        atualizarFiltroClassificacaoEspecificaEstatisticas();
+        document.querySelectorAll('.stats-estado-chk').forEach(c => c.checked = true);
+        renderEstatisticas();
+    }
+
+    // Popula a lista de classificações específicas com base nas classificações que
+    // realmente existem nas ocorrências guardadas (e, se um grupo estiver selecionado,
+    // restringe-a às classificações desse grupo).
+    function atualizarFiltroClassificacaoEspecificaEstatisticas() {
+        const sel = document.getElementById('statsClassificacaoEspecifica');
+        const grupoSel = document.getElementById('statsGrupoClassif').value;
+        const atual = sel.value;
+        const classificacoesExistentes = Array.from(new Set(
+            db.map(o => o.classif).filter(Boolean)
+              .filter(c => !grupoSel || grupoDaClassificacao(c) === grupoSel)
+        )).sort((a, b) => a.localeCompare(b, 'pt'));
+        sel.innerHTML = '<option value="">Todas</option>' + classificacoesExistentes.map(c => `<option value="${c}">${c}</option>`).join('');
+        if (classificacoesExistentes.includes(atual)) sel.value = atual;
+    }
+
+    function atualizarFiltroFreguesiaEstatisticas() {
+        const sel = document.getElementById('statsFreguesia');
+        const atual = sel.value;
+        const freguesias = Array.from(new Set(db.map(o => (o.freguesia || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt'));
+        sel.innerHTML = '<option value="">Todas</option>' + freguesias.map(f => `<option value="${f}">${f}</option>`).join('');
+        if (freguesias.includes(atual)) sel.value = atual;
+    }
+
+    function renderEstatisticas() {
+        atualizarFiltroFreguesiaEstatisticas();
+        atualizarFiltroClassificacaoEspecificaEstatisticas();
+
+        const dataDe = document.getElementById('statsDataDe').value;
+        const dataAte = document.getElementById('statsDataAte').value;
+        const cbSel = document.getElementById('statsCB').value;
+        const freguesiaSel = document.getElementById('statsFreguesia').value;
+        const grupoSel = document.getElementById('statsGrupoClassif').value;
+        const classifEspecificaSel = document.getElementById('statsClassificacaoEspecifica').value;
+        const estadosVisiveis = Array.from(document.querySelectorAll('.stats-estado-chk:checked')).map(c => c.value);
+
+        const filtradas = db.filter(o => {
+            if (!estadosVisiveis.includes(o.estado)) return false;
+            if (dataDe && (!o.data || o.data < dataDe)) return false;
+            if (dataAte && (!o.data || o.data > dataAte)) return false;
+            if (cbSel && o.cb !== cbSel) return false;
+            if (freguesiaSel && (o.freguesia || '') !== freguesiaSel) return false;
+            if (grupoSel && grupoDaClassificacao(o.classif) !== grupoSel) return false;
+            if (classifEspecificaSel && o.classif !== classifEspecificaSel) return false;
+            return true;
+        });
+
+        // ---- Totais ----
+        const totalViaturas = filtradas.reduce((acc, o) => acc + (o.numViaturas ?? (o.viaturas ? o.viaturas.length : 0)), 0);
+        const totalOperacionais = filtradas.reduce((acc, o) => acc + (o.numElementos ?? (o.viaturas ? o.viaturas.reduce((a, v) => a + (v.equipa ? v.equipa.length : 0), 0) : 0)), 0);
+        const totalVitimas = filtradas.reduce((acc, o) => acc + (o.vitimas ? o.vitimas.length : 0), 0);
+        document.getElementById('statTotalOcorrencias').textContent = filtradas.length;
+        document.getElementById('statTotalViaturas').textContent = totalViaturas;
+        document.getElementById('statTotalOperacionais').textContent = totalOperacionais;
+        document.getElementById('statTotalVitimas').textContent = totalVitimas;
+
+        // ---- Por estado ----
+        const contagemEstados = { 'alerta': 0, 'em curso': 0, 'encerrada': 0, 'anulada': 0 };
+        filtradas.forEach(o => { if (contagemEstados[o.estado] !== undefined) contagemEstados[o.estado]++; });
+
+        // ---- Por CB ----
+        const listaCB = ['CMOS', 'BSL', 'BVM', 'BVL', 'BVO'];
+        const contagemCB = {};
+        listaCB.forEach(c => contagemCB[c] = 0);
+        let semCB = 0;
+        filtradas.forEach(o => {
+            if (o.cb && contagemCB[o.cb] !== undefined) contagemCB[o.cb]++;
+            else semCB++;
+        });
+
+        // ---- Por freguesia (top 10) ----
+        const contagemFreguesia = {};
+        filtradas.forEach(o => {
+            const f = (o.freguesia || '').trim() || 'Sem freguesia';
+            contagemFreguesia[f] = (contagemFreguesia[f] || 0) + 1;
+        });
+        const topFreguesias = Object.entries(contagemFreguesia).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+        // ---- Por classificação (top 10) ----
+        const contagemClassif = {};
+        filtradas.forEach(o => {
+            const c = o.classif || 'Sem classificação';
+            contagemClassif[c] = (contagemClassif[c] || 0) + 1;
+        });
+        const topClassif = Object.entries(contagemClassif).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+        // ---- Ocorrências por dia ----
+        const contagemDia = {};
+        filtradas.forEach(o => { if (o.data) contagemDia[o.data] = (contagemDia[o.data] || 0) + 1; });
+        const diasOrdenados = Object.keys(contagemDia).sort();
+
+        // ---- Gráficos (Chart.js) ----
+        const opcoesComuns = { responsive: true, maintainAspectRatio: false };
+        const fonteTicks = { size: 11 };
+        const fonteLegenda = { size: 11 };
+        // Trunca o texto do eixo categórico mantendo o texto completo disponível na tooltip.
+        function callbackTruncarEixo(maxChars) {
+            return function (value) {
+                const label = this.getLabelForValue(value);
+                return label.length > maxChars ? label.slice(0, maxChars) + '…' : label;
+            };
+        }
+
+        if (chartEstadosInstance) chartEstadosInstance.destroy();
+        chartEstadosInstance = new Chart(document.getElementById('chartEstados'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Alerta', 'Em curso', 'Encerrada', 'Anulada'],
+                datasets: [{
+                    data: [contagemEstados['alerta'], contagemEstados['em curso'], contagemEstados['encerrada'], contagemEstados['anulada']],
+                    backgroundColor: ['#ffc107', '#dc3545', '#28a745', '#6c757d']
+                }]
+            },
+            options: { ...opcoesComuns, plugins: { legend: { position: 'bottom', labels: { font: fonteLegenda, boxWidth: 12 } } } }
+        });
+
+        if (chartCBInstance) chartCBInstance.destroy();
+        chartCBInstance = new Chart(document.getElementById('chartCB'), {
+            type: 'bar',
+            data: {
+                labels: [...listaCB, 'Sem CB'],
+                datasets: [{ label: 'Ocorrências', data: [...listaCB.map(c => contagemCB[c]), semCB], backgroundColor: '#0056b3', maxBarThickness: 40 }]
+            },
+            options: {
+                ...opcoesComuns, plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { font: fonteTicks } },
+                    y: { beginAtZero: true, ticks: { precision: 0, font: fonteTicks } }
+                }
+            }
+        });
+
+        if (chartFreguesiaInstance) chartFreguesiaInstance.destroy();
+        chartFreguesiaInstance = new Chart(document.getElementById('chartFreguesia'), {
+            type: 'bar',
+            data: {
+                labels: topFreguesias.map(f => f[0]),
+                datasets: [{ label: 'Ocorrências', data: topFreguesias.map(f => f[1]), backgroundColor: '#d9534f', maxBarThickness: 22 }]
+            },
+            options: {
+                ...opcoesComuns, indexAxis: 'y', plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0, font: fonteTicks } },
+                    y: { ticks: { font: fonteTicks, autoSkip: false, callback: callbackTruncarEixo(20) } }
+                }
+            }
+        });
+
+        if (chartClassificacaoInstance) chartClassificacaoInstance.destroy();
+        chartClassificacaoInstance = new Chart(document.getElementById('chartClassificacao'), {
+            type: 'bar',
+            data: {
+                labels: topClassif.map(c => c[0]),
+                datasets: [{ label: 'Ocorrências', data: topClassif.map(c => c[1]), backgroundColor: '#6610f2', maxBarThickness: 22 }]
+            },
+            options: {
+                ...opcoesComuns, indexAxis: 'y', plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0, font: fonteTicks } },
+                    y: { ticks: { font: fonteTicks, autoSkip: false, callback: callbackTruncarEixo(26) } }
+                }
+            }
+        });
+
+        if (chartTimelineInstance) chartTimelineInstance.destroy();
+        chartTimelineInstance = new Chart(document.getElementById('chartTimeline'), {
+            type: 'line',
+            data: {
+                labels: diasOrdenados.map(d => formatarDataHora(d)),
+                datasets: [{
+                    label: 'Ocorrências', data: diasOrdenados.map(d => contagemDia[d]),
+                    borderColor: '#0056b3', backgroundColor: 'rgba(0,86,179,0.15)', fill: true, tension: 0.2, pointRadius: 3
+                }]
+            },
+            options: {
+                ...opcoesComuns, plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { font: fonteTicks, maxRotation: 45, minRotation: 0 } },
+                    y: { beginAtZero: true, ticks: { precision: 0, font: fonteTicks } }
+                }
+            }
+        });
+    }
+
+    function atualizarFiltroFreguesia() {
+        const sel = document.getElementById('filtroFreguesia');
+        const atual = sel.value;
+        const freguesias = Array.from(new Set(db.map(o => (o.freguesia || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt'));
+        sel.innerHTML = '<option value="">Todas</option>' + freguesias.map(f => `<option value="${f}">${f}</option>`).join('');
+        if (freguesias.includes(atual)) sel.value = atual;
+    }
+
     function renderList() {
+        atualizarFiltroFreguesia();
         const corpo = document.getElementById('tabelaCorpo');
         corpo.innerHTML = '';
         const dataDe = document.getElementById('filtroDataDe').value;
         const dataAte = document.getElementById('filtroDataAte').value;
+        const cbSelecionado = document.getElementById('filtroCB').value;
+        const freguesiaSelecionada = document.getElementById('filtroFreguesia').value;
         const estadosVisiveis = Array.from(document.querySelectorAll('.filtro-estado-chk:checked')).map(c => c.value);
 
         db.forEach((o, i) => {
             if (!estadosVisiveis.includes(o.estado)) return;
             if (dataDe && (!o.data || o.data < dataDe)) return;
             if (dataAte && (!o.data || o.data > dataAte)) return;
+            if (cbSelecionado && o.cb !== cbSelecionado) return;
+            if (freguesiaSelecionada && (o.freguesia || '') !== freguesiaSelecionada) return;
 
             const detalheViaturas = (o.viaturas && o.viaturas.length > 0)
                 ? o.viaturas.map(v => `
@@ -951,6 +1464,8 @@
     function limparFiltros() {
         document.getElementById('filtroDataDe').value = '';
         document.getElementById('filtroDataAte').value = '';
+        document.getElementById('filtroCB').value = '';
+        document.getElementById('filtroFreguesia').value = '';
         document.querySelectorAll('.filtro-estado-chk').forEach(c => c.checked = true);
         renderList();
     }
@@ -993,6 +1508,7 @@
         document.getElementById('dropdownClassificacoes').classList.add('hidden');
         document.getElementById('dropdownMorada').classList.add('hidden');
         document.getElementById('pesquisaMorada').value = '';
+        setFreguesiaValor('');
         marker.setLatLng([39.7436, -8.8071]);
         map.setView([39.7436, -8.8071], 13);
         document.getElementById('btnApagar').classList.add('hidden');
@@ -1014,6 +1530,7 @@
         document.getElementById('classificacao').value = o.classif;
         document.getElementById('rua').value = o.rua;
         document.getElementById('localidade').value = o.localidade;
+        setFreguesiaValor(o.freguesia || '');
         document.getElementById('codigoPostal').value = o.codigoPostal || '';
         document.getElementById('pesquisaMorada').value = '';
         document.getElementById('porta').value = o.porta;
